@@ -396,9 +396,15 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final screenWidth = MediaQuery.of(context).size.width;
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tripwise PSI Reports'),
+        title: Text(
+          'Tripwise PSI Reports',
+          style: TextStyle(fontSize: isMobile ? 16 : 20),
+        ),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
       ),
@@ -409,37 +415,37 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
             // Filter Section
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(isMobile ? 12 : 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Tripwise PSI Reports',
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: isMobile ? 16 : 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.red,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: isMobile ? 12 : 20),
 
                   // From Date
                   Row(
                     children: [
-                      const SizedBox(
-                        width: 120,
+                      SizedBox(
+                        width: isMobile ? 80 : 120,
                         child: Text(
                           'From Date*',
-                          style: TextStyle(fontSize: 14),
+                          style: TextStyle(fontSize: isMobile ? 12 : 14),
                         ),
                       ),
                       Expanded(
                         child: InkWell(
                           onTap: () => _selectDate(context, true),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 8 : 12,
+                              vertical: isMobile ? 8 : 12,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.grey.shade200,
@@ -449,8 +455,11 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(DateFormat('dd/MM/yyyy').format(_fromDate)),
-                                const Icon(Icons.calendar_today, size: 18),
+                                Text(
+                                  DateFormat('dd/MM/yyyy').format(_fromDate),
+                                  style: TextStyle(fontSize: isMobile ? 12 : 14),
+                                ),
+                                Icon(Icons.calendar_today, size: isMobile ? 16 : 18),
                               ],
                             ),
                           ),
@@ -458,25 +467,25 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: isMobile ? 12 : 16),
 
                   // To Date
                   Row(
                     children: [
-                      const SizedBox(
-                        width: 120,
+                      SizedBox(
+                        width: isMobile ? 80 : 120,
                         child: Text(
                           'To Date*',
-                          style: TextStyle(fontSize: 14),
+                          style: TextStyle(fontSize: isMobile ? 12 : 14),
                         ),
                       ),
                       Expanded(
                         child: InkWell(
                           onTap: () => _selectDate(context, false),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 8 : 12,
+                              vertical: isMobile ? 8 : 12,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.grey.shade200,
@@ -486,8 +495,11 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(DateFormat('dd/MM/yyyy').format(_toDate)),
-                                const Icon(Icons.calendar_today, size: 18),
+                                Text(
+                                  DateFormat('dd/MM/yyyy').format(_toDate),
+                                  style: TextStyle(fontSize: isMobile ? 12 : 14),
+                                ),
+                                Icon(Icons.calendar_today, size: isMobile ? 16 : 18),
                               ],
                             ),
                           ),
@@ -495,47 +507,53 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: isMobile ? 12 : 16),
 
                   // Train Selection
                   Row(
                     children: [
-                      const SizedBox(
-                        width: 120,
+                      SizedBox(
+                        width: isMobile ? 80 : 120,
                         child: Text(
                           'Train',
-                          style: TextStyle(fontSize: 14),
+                          style: TextStyle(fontSize: isMobile ? 12 : 14),
                         ),
                       ),
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12),
                           decoration: BoxDecoration(
                             color: Colors.grey.shade200,
                             border: Border.all(color: Colors.grey.shade400),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: _isLoadingTrains
-                              ? const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 12),
+                              ? Padding(
+                                  padding: EdgeInsets.symmetric(vertical: isMobile ? 8 : 12),
                                   child: Row(
                                     children: [
                                       SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                        width: isMobile ? 14 : 16,
+                                        height: isMobile ? 14 : 16,
+                                        child: const CircularProgressIndicator(strokeWidth: 2),
                                       ),
-                                      SizedBox(width: 12),
-                                      Text('Loading trains...'),
+                                      SizedBox(width: isMobile ? 8 : 12),
+                                      Text(
+                                        'Loading trains...',
+                                        style: TextStyle(fontSize: isMobile ? 12 : 14),
+                                      ),
                                     ],
                                   ),
                                 )
                               : _trains.isEmpty
-                                  ? const Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 12),
+                                  ? Padding(
+                                      padding: EdgeInsets.symmetric(vertical: isMobile ? 8 : 12),
                                       child: Text(
                                         'No trains available. Import Excel to create trains.',
-                                        style: TextStyle(color: Colors.orange),
+                                        style: TextStyle(
+                                          color: Colors.orange,
+                                          fontSize: isMobile ? 11 : 14,
+                                        ),
                                       ),
                                     )
                                   : DropdownButtonHideUnderline(
@@ -544,7 +562,14 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                                             ? _selectedTrainId 
                                             : null,
                                         isExpanded: true,
-                                        hint: const Text('Select Train'),
+                                        hint: Text(
+                                          'Select Train',
+                                          style: TextStyle(fontSize: isMobile ? 12 : 14),
+                                        ),
+                                        style: TextStyle(
+                                          fontSize: isMobile ? 12 : 14,
+                                          color: Colors.black,
+                                        ),
                                         items: _trains.map((train) {
                                           return DropdownMenuItem<String>(
                                             value: train.id,
@@ -564,30 +589,32 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                                     ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: isMobile ? 4 : 8),
                       IconButton(
-                        icon: const Icon(Icons.refresh, size: 20),
+                        icon: Icon(Icons.refresh, size: isMobile ? 18 : 20),
                         tooltip: 'Refresh trains',
                         onPressed: _isLoadingTrains ? null : _loadTrains,
                         color: Colors.blue,
+                        padding: EdgeInsets.all(isMobile ? 4 : 8),
+                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: isMobile ? 12 : 16),
 
                   // Trip Selection
                   Row(
                     children: [
-                      const SizedBox(
-                        width: 120,
+                      SizedBox(
+                        width: isMobile ? 80 : 120,
                         child: Text(
                           'Select Trips',
-                          style: TextStyle(fontSize: 14),
+                          style: TextStyle(fontSize: isMobile ? 12 : 14),
                         ),
                       ),
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12),
                           decoration: BoxDecoration(
                             color: Colors.grey.shade200,
                             border: Border.all(color: Colors.grey.shade400),
@@ -597,6 +624,10 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                             child: DropdownButton<String>(
                               value: _selectedTrip,
                               isExpanded: true,
+                              style: TextStyle(
+                                fontSize: isMobile ? 12 : 14,
+                                color: Colors.black,
+                              ),
                               items: _availableTrips.map((String trip) {
                                 return DropdownMenuItem<String>(
                                   value: trip,
@@ -617,34 +648,41 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: isMobile ? 12 : 20),
 
                   // Action Buttons
-                  Row(
+                  Wrap(
+                    spacing: isMobile ? 8 : 12,
+                    runSpacing: isMobile ? 8 : 0,
                     children: [
                       ElevatedButton(
                         onPressed: _isLoading ? null : _loadPSIData,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 12,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 20 : 32,
+                            vertical: isMobile ? 10 : 12,
                           ),
                         ),
-                        child: const Text('Show'),
+                        child: Text(
+                          'Show',
+                          style: TextStyle(fontSize: isMobile ? 13 : 14),
+                        ),
                       ),
-                      const SizedBox(width: 12),
                       ElevatedButton.icon(
                         onPressed: _isLoading ? null : _importExcel,
-                        icon: const Icon(Icons.upload_file, size: 18),
-                        label: const Text('Import Excel'),
+                        icon: Icon(Icons.upload_file, size: isMobile ? 16 : 18),
+                        label: Text(
+                          'Import Excel',
+                          style: TextStyle(fontSize: isMobile ? 13 : 14),
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue.shade700,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 16 : 24,
+                            vertical: isMobile ? 10 : 12,
                           ),
                         ),
                       ),
@@ -659,19 +697,30 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
               // Action Buttons
               Container(
                 color: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 8 : 16,
+                  vertical: isMobile ? 6 : 8,
+                ),
+                child: Wrap(
+                  spacing: isMobile ? 4 : 8,
+                  runSpacing: isMobile ? 4 : 0,
+                  alignment: WrapAlignment.end,
                   children: [
                     TextButton.icon(
                       onPressed: _exportToExcel,
-                      icon: const Icon(Icons.download, size: 18),
-                      label: const Text('Export to Excel'),
+                      icon: Icon(Icons.download, size: isMobile ? 16 : 18),
+                      label: Text(
+                        'Export to Excel',
+                        style: TextStyle(fontSize: isMobile ? 12 : 14),
+                      ),
                       style: TextButton.styleFrom(
                         foregroundColor: Colors.blue,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 8 : 12,
+                          vertical: isMobile ? 6 : 8,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     TextButton(
                       onPressed: () async {
                         if (_psiRecords.isEmpty) {
@@ -691,11 +740,17 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                           );
                         }
                       },
-                      child: const Text(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 8 : 12,
+                          vertical: isMobile ? 6 : 8,
+                        ),
+                      ),
+                      child: Text(
                         'All-Print',
                         style: TextStyle(
                           color: Colors.blue,
-                          fontSize: 14,
+                          fontSize: isMobile ? 12 : 14,
                         ),
                       ),
                     ),
@@ -708,9 +763,9 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(isMobile ? 8 : 16),
                         child: Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: EdgeInsets.all(isMobile ? 12 : 20),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
@@ -720,217 +775,295 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Report Header
-                              const Center(
+                              Center(
                                 child: Text(
                                   'Passenger Feedback',
                                   style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: isMobile ? 14 : 18,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              const Text(
+                              SizedBox(height: isMobile ? 12 : 16),
+                              Text(
                                 'Trainwise PSI Report',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: isMobile ? 13 : 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              const Text(
+                              SizedBox(height: isMobile ? 2 : 4),
+                              Text(
                                 'PRABHAKAR ENTERPRISE',
                                 style: TextStyle(
-                                  fontSize: 15,
+                                  fontSize: isMobile ? 12 : 15,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              const Text(
+                              SizedBox(height: isMobile ? 2 : 4),
+                              Text(
                                 'OBHS Activity & Linen Distribution in AC / NON- AC Coaches',
-                                style: TextStyle(fontSize: 13),
+                                style: TextStyle(fontSize: isMobile ? 11 : 13),
                               ),
-                              const Text(
+                              Text(
                                 'in primary based Train at Muzaffarpur Division',
-                                style: TextStyle(fontSize: 13),
+                                style: TextStyle(fontSize: isMobile ? 11 : 13),
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(height: isMobile ? 6 : 8),
                               if (_psiRecords.isNotEmpty) ...[
                                 Text(
                                   _getReportInfo(),
-                                  style: const TextStyle(
-                                    fontSize: 13,
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 11 : 13,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
-                              const SizedBox(height: 20),
+                              SizedBox(height: isMobile ? 12 : 20),
 
                               // Data Table
                               SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
-                                child: DataTable(
-                                  headingRowColor: WidgetStateProperty.all(
-                                    Colors.grey.shade200,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minWidth: isMobile ? screenWidth - 40 : screenWidth - 64,
                                   ),
-                                  border: TableBorder.all(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                  columnSpacing: 16,
-                                  columns: const [
-                                    DataColumn(
-                                      label: Text(
-                                        'Date',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                      ),
+                                  child: DataTable(
+                                    headingRowColor: WidgetStateProperty.all(
+                                      Colors.grey.shade200,
                                     ),
-                                    DataColumn(
-                                      label: Text(
-                                        'Passenger-Name',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                      ),
+                                    border: TableBorder.all(
+                                      color: Colors.grey.shade300,
                                     ),
-                                    DataColumn(
-                                      label: Text(
-                                        'PNR-No',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                    columnSpacing: isMobile ? 8 : 16,
+                                    dataRowMinHeight: isMobile ? 36 : 48,
+                                    dataRowMaxHeight: isMobile ? 48 : 64,
+                                    headingRowHeight: isMobile ? 40 : 56,
+                                    columns: [
+                                      DataColumn(
+                                        label: Text(
+                                          'Date',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isMobile ? 11 : 14,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    DataColumn(
-                                      label: Text(
-                                        'Mobile-No',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      DataColumn(
+                                        label: Text(
+                                          'Passenger-Name',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isMobile ? 11 : 14,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    DataColumn(
-                                      label: Text(
-                                        'Coach',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      DataColumn(
+                                        label: Text(
+                                          'PNR-No',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isMobile ? 11 : 14,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    DataColumn(
-                                      label: Text(
-                                        'Seat-No',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      DataColumn(
+                                        label: Text(
+                                          'Mobile-No',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isMobile ? 11 : 14,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    DataColumn(
-                                      label: Text(
-                                        'PSI',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      DataColumn(
+                                        label: Text(
+                                          'Coach',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isMobile ? 11 : 14,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    DataColumn(
-                                      label: Text(
-                                        'Print',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      DataColumn(
+                                        label: Text(
+                                          'Seat-No',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isMobile ? 11 : 14,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    DataColumn(
-                                      label: Text(
-                                        'Actions',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      DataColumn(
+                                        label: Text(
+                                          'PSI',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isMobile ? 11 : 14,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                  rows: _psiRecords.asMap().entries.map((entry) {
-                                    final index = entry.key;
-                                    final record = entry.value;
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(Text(
-                                          DateFormat('dd/MM/yyyy').format(record.date),
-                                        )),
-                                        DataCell(Text(record.passengerName)),
-                                        DataCell(Text(record.pnrNo)),
-                                        DataCell(Text(record.mobileNo)),
-                                        DataCell(Text(record.coach)),
-                                        DataCell(Text(record.seatNo)),
-                                        DataCell(Text(record.psiScore.toStringAsFixed(2))),
-                                        DataCell(
-                                          TextButton(
-                                            onPressed: () async {
-                                              await PDFGeneratorService.generateFeedbackFormPDF(
-                                                record,
-                                                serialNumber: index + 2, // Start from 0002
-                                              );
-                                            },
-                                            child: const Text(
-                                              'Print',
-                                              style: TextStyle(color: Colors.blue),
+                                      DataColumn(
+                                        label: Text(
+                                          'Print',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isMobile ? 11 : 14,
+                                          ),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Actions',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isMobile ? 11 : 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    rows: _psiRecords.asMap().entries.map((entry) {
+                                      final index = entry.key;
+                                      final record = entry.value;
+                                      return DataRow(
+                                        cells: [
+                                          DataCell(Text(
+                                            DateFormat('dd/MM/yyyy').format(record.date),
+                                            style: TextStyle(fontSize: isMobile ? 11 : 14),
+                                          )),
+                                          DataCell(Text(
+                                            record.passengerName,
+                                            style: TextStyle(fontSize: isMobile ? 11 : 14),
+                                          )),
+                                          DataCell(Text(
+                                            record.pnrNo,
+                                            style: TextStyle(fontSize: isMobile ? 11 : 14),
+                                          )),
+                                          DataCell(Text(
+                                            record.mobileNo,
+                                            style: TextStyle(fontSize: isMobile ? 11 : 14),
+                                          )),
+                                          DataCell(Text(
+                                            record.coach,
+                                            style: TextStyle(fontSize: isMobile ? 11 : 14),
+                                          )),
+                                          DataCell(Text(
+                                            record.seatNo,
+                                            style: TextStyle(fontSize: isMobile ? 11 : 14),
+                                          )),
+                                          DataCell(Text(
+                                            record.psiScore.toStringAsFixed(2),
+                                            style: TextStyle(fontSize: isMobile ? 11 : 14),
+                                          )),
+                                          DataCell(
+                                            TextButton(
+                                              onPressed: () async {
+                                                await PDFGeneratorService.generateFeedbackFormPDF(
+                                                  record,
+                                                  serialNumber: index + 2, // Start from 0002
+                                                );
+                                              },
+                                              style: TextButton.styleFrom(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: isMobile ? 4 : 8,
+                                                  vertical: isMobile ? 2 : 4,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                'Print',
+                                                style: TextStyle(
+                                                  color: Colors.blue,
+                                                  fontSize: isMobile ? 11 : 14,
+                                                ),
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        DataCell(
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(Icons.edit, size: 20),
-                                                color: Colors.blue,
-                                                onPressed: () async {
-                                                  final result = await Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (context) => PSIFormScreen(record: record),
-                                                    ),
-                                                  );
-                                                  if (result == true) {
-                                                    _loadPSIData();
-                                                  }
-                                                },
-                                              ),
-                                              IconButton(
-                                                icon: const Icon(Icons.delete, size: 20),
-                                                color: Colors.red,
-                                                onPressed: () async {
-                                                  final confirm = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (context) => AlertDialog(
-                                                      title: const Text('Delete PSI Record'),
-                                                      content: const Text(
-                                                        'Are you sure you want to delete this PSI record?',
+                                          DataCell(
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                IconButton(
+                                                  icon: Icon(
+                                                    Icons.edit,
+                                                    size: isMobile ? 18 : 20,
+                                                  ),
+                                                  color: Colors.blue,
+                                                  padding: EdgeInsets.all(isMobile ? 4 : 8),
+                                                  constraints: const BoxConstraints(),
+                                                  onPressed: () async {
+                                                    final result = await Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) => PSIFormScreen(record: record),
                                                       ),
-                                                      actions: [
-                                                        TextButton(
-                                                          onPressed: () => Navigator.pop(context, false),
-                                                          child: const Text('Cancel'),
+                                                    );
+                                                    if (result == true) {
+                                                      _loadPSIData();
+                                                    }
+                                                  },
+                                                ),
+                                                SizedBox(width: isMobile ? 2 : 4),
+                                                IconButton(
+                                                  icon: Icon(
+                                                    Icons.delete,
+                                                    size: isMobile ? 18 : 20,
+                                                  ),
+                                                  color: Colors.red,
+                                                  padding: EdgeInsets.all(isMobile ? 4 : 8),
+                                                  constraints: const BoxConstraints(),
+                                                  onPressed: () async {
+                                                    final confirm = await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (context) => AlertDialog(
+                                                        title: Text(
+                                                          'Delete PSI Record',
+                                                          style: TextStyle(fontSize: isMobile ? 16 : 18),
                                                         ),
-                                                        TextButton(
-                                                          onPressed: () => Navigator.pop(context, true),
-                                                          child: const Text(
-                                                            'Delete',
-                                                            style: TextStyle(color: Colors.red),
+                                                        content: Text(
+                                                          'Are you sure you want to delete this PSI record?',
+                                                          style: TextStyle(fontSize: isMobile ? 13 : 14),
+                                                        ),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () => Navigator.pop(context, false),
+                                                            child: const Text('Cancel'),
                                                           ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
+                                                          TextButton(
+                                                            onPressed: () => Navigator.pop(context, true),
+                                                            child: const Text(
+                                                              'Delete',
+                                                              style: TextStyle(color: Colors.red),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
 
-                                                  if (confirm == true && record.id != null) {
-                                                    final result = await _psiService.deletePSIRecord(record.id!);
-                                                    if (mounted) {
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        SnackBar(
-                                                          content: Text(result['message']),
-                                                          backgroundColor: result['success'] 
-                                                              ? Colors.green 
-                                                              : Colors.red,
-                                                        ),
-                                                      );
-                                                      if (result['success']) {
-                                                        _loadPSIData();
+                                                    if (confirm == true && record.id != null) {
+                                                      final result = await _psiService.deletePSIRecord(record.id!);
+                                                      if (mounted) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(result['message']),
+                                                            backgroundColor: result['success'] 
+                                                                ? Colors.green 
+                                                                : Colors.red,
+                                                          ),
+                                                        );
+                                                        if (result['success']) {
+                                                          _loadPSIData();
+                                                        }
                                                       }
                                                     }
-                                                  }
-                                                },
-                                              ),
-                                            ],
+                                                  },
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
+                                        ],
+                                      );
+                                    }).toList(),
+                                  ),
                                 ),
                               ),
                             ],
