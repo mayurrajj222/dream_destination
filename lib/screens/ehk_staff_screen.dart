@@ -12,6 +12,7 @@ class EHKStaffScreen extends StatefulWidget {
 class _EHKStaffScreenState extends State<EHKStaffScreen> {
   final _staffService = EHKStaffService();
   final _formKey = GlobalKey<FormState>();
+  final _customerIdController = TextEditingController();
   final _userIdController = TextEditingController();
   final _passwordController = TextEditingController();
   final _userNameController = TextEditingController();
@@ -28,6 +29,7 @@ class _EHKStaffScreenState extends State<EHKStaffScreen> {
 
   @override
   void dispose() {
+    _customerIdController.dispose();
     _userIdController.dispose();
     _passwordController.dispose();
     _userNameController.dispose();
@@ -44,6 +46,7 @@ class _EHKStaffScreenState extends State<EHKStaffScreen> {
   }
 
   void _clearForm() {
+    _customerIdController.clear();
     _userIdController.clear();
     _passwordController.clear();
     _userNameController.clear();
@@ -55,6 +58,7 @@ class _EHKStaffScreenState extends State<EHKStaffScreen> {
 
     final staff = EHKStaff(
       id: _editingStaff?.id,
+      customerId: _customerIdController.text.trim(),
       userId: _userIdController.text.trim(),
       password: _passwordController.text.trim(),
       userName: _userNameController.text.trim(),
@@ -86,6 +90,7 @@ class _EHKStaffScreenState extends State<EHKStaffScreen> {
   void _editStaff(EHKStaff staff) {
     setState(() {
       _editingStaff = staff;
+      _customerIdController.text = staff.customerId;
       _userIdController.text = staff.userId;
       _passwordController.text = staff.password;
       _userNameController.text = staff.userName;
@@ -154,6 +159,22 @@ class _EHKStaffScreenState extends State<EHKStaffScreen> {
                       fontWeight: FontWeight.bold,
                       color: Colors.red,
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _customerIdController,
+                    decoration: const InputDecoration(
+                      labelText: 'Customer ID*',
+                      border: OutlineInputBorder(),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter Customer ID';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -289,7 +310,13 @@ class _EHKStaffScreenState extends State<EHKStaffScreen> {
                                       ),
                                       DataColumn(
                                         label: Text(
-                                          'UserID',
+                                          'Customer ID',
+                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'User ID',
                                           style: TextStyle(fontWeight: FontWeight.bold),
                                         ),
                                       ),
@@ -301,7 +328,7 @@ class _EHKStaffScreenState extends State<EHKStaffScreen> {
                                       ),
                                       DataColumn(
                                         label: Text(
-                                          'UserName',
+                                          'User Name',
                                           style: TextStyle(fontWeight: FontWeight.bold),
                                         ),
                                       ),
@@ -324,6 +351,7 @@ class _EHKStaffScreenState extends State<EHKStaffScreen> {
                                       return DataRow(
                                         cells: [
                                           DataCell(Text('${index + 1}')),
+                                          DataCell(Text(staff.customerId)),
                                           DataCell(Text(staff.userId)),
                                           DataCell(Text(staff.password)),
                                           DataCell(Text(staff.userName)),

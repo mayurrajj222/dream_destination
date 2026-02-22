@@ -327,8 +327,7 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
     if (_psiRecords.isEmpty) return '';
     
     final firstRecord = _psiRecords.first;
-    return 'EHK Name: ${firstRecord.ehkName}\n'
-           'Trip ID: ${firstRecord.tripId}\n'
+    return 'Trip ID: ${firstRecord.tripId}\n'
            'Train No: ${firstRecord.trainNo} - ${firstRecord.trainName}';
   }
 

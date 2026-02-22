@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EHKStaff {
   final String? id;
+  final String customerId;
   final String userId;
   final String password;
   final String userName;
@@ -9,6 +10,7 @@ class EHKStaff {
 
   EHKStaff({
     this.id,
+    required this.customerId,
     required this.userId,
     required this.password,
     required this.userName,
@@ -17,6 +19,7 @@ class EHKStaff {
 
   Map<String, dynamic> toMap() {
     return {
+      'customerId': customerId,
       'userId': userId,
       'password': password,
       'userName': userName,
@@ -27,6 +30,7 @@ class EHKStaff {
   factory EHKStaff.fromMap(Map<String, dynamic> map, String id) {
     return EHKStaff(
       id: id,
+      customerId: map['customerId'] ?? '',
       userId: map['userId'] ?? '',
       password: map['password'] ?? '',
       userName: map['userName'] ?? '',

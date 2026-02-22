@@ -41,18 +41,19 @@ class EHKStaffService {
   // Add new staff and create Firebase Auth user
   Future<Map<String, dynamic>> addStaff(EHKStaff staff) async {
     try {
-      // Check if userId already exists
+      // Check if customerId + userId combination already exists
       final existing = await _firestore
           .collection(_collection)
+          .where('customerId', isEqualTo: staff.customerId)
           .where('userId', isEqualTo: staff.userId)
           .get();
 
       if (existing.docs.isNotEmpty) {
-        return {'success': false, 'message': 'User ID already exists'};
+        return {'success': false, 'message': 'Customer ID and User ID combination already exists'};
       }
 
-      // Create email format: userId@dreamdestination.com
-      final email = '${staff.userId}@dreamdestination.com';
+      // Create email format matching login: customerId_userId@dreamdestination.com
+      final email = '${staff.customerId}_${staff.userId}@dreamdestination.com';
 
       // Create Firebase Auth user
       try {
@@ -67,7 +68,7 @@ class EHKStaffService {
         return {'success': true, 'message': 'Staff added successfully'};
       } on FirebaseAuthException catch (e) {
         if (e.code == 'email-already-in-use') {
-          return {'success': false, 'message': 'User ID already registered'};
+          return {'success': false, 'message': 'Customer ID and User ID combination already registered'};
         }
         return {'success': false, 'message': 'Auth error: ${e.message}'};
       }
