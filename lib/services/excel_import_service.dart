@@ -309,37 +309,99 @@ class ExcelImportService {
 
       final cellValue = row[0]?.value?.toString() ?? '';
 
-      // Extract Train No from "Train No: XXXXX" format
+      // Extract Train No from "Train No: XXXXX" or "Train No: XXXXX - Train Name" format
       if (cellValue.contains('Train No:')) {
-        final trainNo = cellValue.replaceAll('Train No:', '').trim();
-        metadata['trainNo'] = trainNo;
-        // Use train number as train name if not found
-        if (!metadata.containsKey('trainName')) {
-          metadata['trainName'] = 'Train $trainNo';
+        // Extract just the train number (5 digits)
+        final match = RegExp(r'Train No:\s*(\d{5})').firstMatch(cellValue);
+        if (match != null) {
+          metadata['trainNo'] = match.group(1)!;
+        }
+        
+        // Try to extract train name if it follows the pattern "Train No: XXXXX - Name"
+        final nameMatch = RegExp(r'Train No:\s*\d{5}\s*-\s*([^\n]+)').firstMatch(cellValue);
+        if (nameMatch != null) {
+          metadata['trainName'] = nameMatch.group(1)!.trim();
         }
       }
 
-      // Extract EHK Name
+      // Extract EHK Name - get only the name, not everything after it
       if (cellValue.contains('EHK Name:')) {
-        metadata['ehkName'] = cellValue.replaceAll('EHK Name:', '').trim();
+        // Extract text after "EHK Name:" until newline or next section
+        final match = RegExp(r'EHK Name:\s*([^\n]+)').firstMatch(cellValue);
+        if (match != null) {
+          var ehkName = match.group(1)!.trim();
+          // Remove any trailing text that looks like it's from another section
+          ehkName = ehkName.split(RegExp(r'(Trip Period|Trip ID|Train No|OBHS|Trainwise)')).first.trim();
+          metadata['ehkName'] = ehkName;
+        }
       }
 
-      // Extract Trip ID
+      // Extract Trip ID - get only the ID, not everything after it
       if (cellValue.contains('Trip ID:')) {
-        metadata['tripId'] = cellValue.replaceAll('Trip ID:', '').trim();
+        // Extract text after "Trip ID:" until newline or next section
+        final match = RegExp(r'Trip ID:\s*([^\n]+)').firstMatch(cellValue);
+        if (match != null) {
+          var tripId = match.group(1)!.trim();
+          // Remove any trailing text that looks like it's from another section
+          tripId = tripId.split(RegExp(r'(Trip Period|EHK Name|Train No|OBHS|Trainwise)')).first.trim();
+          // If trip ID contains non-numeric/non-alphanumeric at the start, extract just the ID part
+          final idMatch = RegExp(r'^([A-Za-z0-9\-]+)').firstMatch(tripId);
+          if (idMatch != null) {
+            metadata['tripId'] = idMatch.group(1)!;
+          } else {
+            metadata['tripId'] = tripId;
+          }
+        }
       }
 
       // Extract Trip Period for date range
       if (cellValue.contains('Trip Period:')) {
-        metadata['tripPeriod'] = cellValue.replaceAll('Trip Period:', '').trim();
+        final match = RegExp(r'Trip Period:\s*([^\n]+)').firstMatch(cellValue);
+        if (match != null) {
+          metadata['tripPeriod'] = match.group(1)!.trim();
+        }
       }
 
-      // Check for "Trainwise PSI Report" or "Passenger Feedback" headers
-      if (cellValue.contains('Trainwise PSI Report') || 
-          cellValue.contains('Passenger Feedback')) {
-        // Next few rows might have train info
-        continue;
+      // Look for train name in specific patterns
+      // Pattern 1: Row contains company/enterprise name (usually in caps)
+      // Look for a line that's likely the company name (between other metadata)
+      if (!metadata.containsKey('trainName') && i > 0 && i < 15) {
+        final trimmedValue = cellValue.trim();
+        
+        // Check if this looks like a company/enterprise name
+        if (trimmedValue.length > 5 && 
+            trimmedValue.length < 50 &&
+            !trimmedValue.contains(':') && // Not a label
+            !trimmedValue.contains('Train No') &&
+            !trimmedValue.contains('EHK Name') &&
+            !trimmedValue.contains('Trip ID') &&
+            !trimmedValue.contains('Trip Period') &&
+            !trimmedValue.contains('Trainwise PSI Report') &&
+            !trimmedValue.contains('Passenger Feedback') &&
+            !trimmedValue.contains('OBHS Activity') &&
+            !trimmedValue.contains('Linen Distribution') &&
+            !trimmedValue.contains('primary based') &&
+            !trimmedValue.contains('Division') &&
+            !trimmedValue.contains('Coaches') &&
+            !trimmedValue.toLowerCase().contains('date') &&
+            !trimmedValue.toLowerCase().contains('passenger') &&
+            !trimmedValue.toLowerCase().contains('pnr')) {
+          
+          // Check if it's mostly uppercase (company names are usually in caps)
+          final uppercaseCount = trimmedValue.split('').where((c) => c == c.toUpperCase() && c != c.toLowerCase()).length;
+          final letterCount = trimmedValue.split('').where((c) => RegExp(r'[a-zA-Z]').hasMatch(c)).length;
+          
+          if (letterCount > 0 && uppercaseCount / letterCount > 0.7) {
+            // This is likely the company/train name
+            metadata['trainName'] = trimmedValue;
+          }
+        }
       }
+    }
+
+    // If train name still not found, use train number
+    if (!metadata.containsKey('trainName') && metadata.containsKey('trainNo')) {
+      metadata['trainName'] = 'Train ${metadata['trainNo']}';
     }
 
     // If no metadata found, try to extract from first data row

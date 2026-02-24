@@ -103,19 +103,21 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
         r.trainNo == selectedTrain.trainNoComing
       ).toList();
       
-      // Group by trip ID and get the first date for each trip
+      // Group by trip ID and EHK Name combination to handle multiple trips on same day
       Map<String, PSIRecord> tripMap = {};
       for (var record in trainRecords) {
-        if (!tripMap.containsKey(record.tripId)) {
-          tripMap[record.tripId] = record;
+        // Use tripId + ehkName as unique key to differentiate trips
+        String uniqueKey = '${record.tripId}_${record.ehkName}';
+        if (!tripMap.containsKey(uniqueKey)) {
+          tripMap[uniqueKey] = record;
         }
       }
       
-      // Create trip display strings: "TripID | Date | TrainNo"
+      // Create trip display strings: "TripID | Date | TrainNo | EHK Name"
       List<String> tripDisplays = tripMap.entries.map((entry) {
         final record = entry.value;
         final dateStr = DateFormat('yyyy-MM-dd').format(record.date);
-        return '${record.tripId} | $dateStr | ${record.trainNo}';
+        return '${record.tripId} | $dateStr | ${record.trainNo} | ${record.ehkName}';
       }).toList();
       
       tripDisplays.sort();
@@ -256,28 +258,27 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
       final selectedTrain = _trains.firstWhere((t) => t.id == _selectedTrainId);
       
       if (_selectedTrip == '--Please Select Trips--') {
-        // Load all PSI records for the selected train and date range
-        // Try by trainId first, then fall back to trainNo
-        records = await _psiService.getPSIRecordsByTrainAndDateRange(
-          _selectedTrainId!,
-          _fromDate,
-          _toDate,
-        );
+        // When no trip is selected, show message to select a trip
+        setState(() {
+          _psiRecords = [];
+          _isLoading = false;
+          _showReport = false;
+        });
         
-        // If no records found by trainId, try by trainNo
-        if (records.isEmpty) {
-          final allRecords = await _psiService.getPSIRecordsByDateRange(
-            _fromDate,
-            _toDate,
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select a specific trip to view the report'),
+              backgroundColor: Colors.orange,
+            ),
           );
-          records = allRecords.where((r) => 
-            r.trainNo == selectedTrain.trainNoGoing || 
-            r.trainNo == selectedTrain.trainNoComing
-          ).toList();
         }
+        return;
       } else {
-        // Extract trip ID from display string "TripID | Date | TrainNo"
-        final tripId = _selectedTrip.split('|')[0].trim();
+        // Extract trip ID and EHK Name from display string "TripID | Date | TrainNo | EHK Name"
+        final parts = _selectedTrip.split('|');
+        final tripId = parts[0].trim();
+        final ehkName = parts.length > 3 ? parts[3].trim() : '';
         
         // Load PSI records for selected trip
         final allRecords = await _psiService.getPSIRecordsByDateRange(
@@ -285,10 +286,12 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
           _toDate,
         );
         
+        // Filter by trip ID, train number, and EHK Name
         records = allRecords.where((r) => 
           r.tripId == tripId &&
           (r.trainNo == selectedTrain.trainNoGoing || 
-           r.trainNo == selectedTrain.trainNoComing)
+           r.trainNo == selectedTrain.trainNoComing) &&
+          (ehkName.isEmpty || r.ehkName == ehkName)
         ).toList();
       }
 
@@ -327,7 +330,8 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
     if (_psiRecords.isEmpty) return '';
     
     final firstRecord = _psiRecords.first;
-    return 'Trip ID: ${firstRecord.tripId}\n'
+    return 'EHK Name: ${firstRecord.ehkName}\n'
+           'Trip ID: ${firstRecord.tripId}\n'
            'Train No: ${firstRecord.trainNo} - ${firstRecord.trainName}';
   }
 
@@ -784,38 +788,68 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                                 ),
                               ),
                               SizedBox(height: isMobile ? 12 : 16),
-                              Text(
-                                'Trainwise PSI Report',
-                                style: TextStyle(
-                                  fontSize: isMobile ? 13 : 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: isMobile ? 2 : 4),
-                              Text(
-                                'PRABHAKAR ENTERPRISE',
-                                style: TextStyle(
-                                  fontSize: isMobile ? 12 : 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: isMobile ? 2 : 4),
-                              Text(
-                                'OBHS Activity & Linen Distribution in AC / NON- AC Coaches',
-                                style: TextStyle(fontSize: isMobile ? 11 : 13),
-                              ),
-                              Text(
-                                'in primary based Train at Muzaffarpur Division',
-                                style: TextStyle(fontSize: isMobile ? 11 : 13),
-                              ),
-                              SizedBox(height: isMobile ? 6 : 8),
+                              
+                              // Company and Trip Details
                               if (_psiRecords.isNotEmpty) ...[
                                 Text(
-                                  _getReportInfo(),
+                                  'OBHS Activity in AC / NAC Coaches',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 12 : 14,
+                                  ),
+                                ),
+                                Text(
+                                  'in primary based Train at Muzaffarpur Division',
+                                  style: TextStyle(fontSize: isMobile ? 11 : 13),
+                                ),
+                                SizedBox(height: isMobile ? 4 : 8),
+                                Text(
+                                  'EHK Name: ${_psiRecords.first.ehkName}',
                                   style: TextStyle(
                                     fontSize: isMobile ? 11 : 13,
                                     fontWeight: FontWeight.bold,
                                   ),
+                                ),
+                                Text(
+                                  'Trip Period: ${DateFormat('dd/MM/yyyy').format(_psiRecords.first.date)} To ${DateFormat('dd/MM/yyyy').format(_psiRecords.last.date)}',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 11 : 13,
+                                  ),
+                                ),
+                                SizedBox(height: isMobile ? 4 : 8),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Train No: ${_psiRecords.first.trainNo}',
+                                      style: TextStyle(
+                                        fontSize: isMobile ? 11 : 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Train Name: ${_psiRecords.first.trainName}',
+                                        style: TextStyle(
+                                          fontSize: isMobile ? 11 : 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Trip ID: ${_psiRecords.first.tripId}',
+                                      style: TextStyle(
+                                        fontSize: isMobile ? 11 : 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                               SizedBox(height: isMobile ? 12 : 20),
@@ -1062,6 +1096,25 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                                         ],
                                       );
                                     }).toList(),
+                                  ),
+                                ),
+                              ),
+                              
+                              // Total Feedback Summary
+                              SizedBox(height: isMobile ? 12 : 20),
+                              Container(
+                                padding: EdgeInsets.all(isMobile ? 8 : 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  border: Border.all(color: Colors.blue.shade200),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Total Feedback : ${_psiRecords.length} | Attended : ${_psiRecords.length} | Not Attended: 0| Total PSI : ${_psiRecords.fold<double>(0, (sum, record) => sum + record.psiScore).toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 12 : 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade900,
                                   ),
                                 ),
                               ),
