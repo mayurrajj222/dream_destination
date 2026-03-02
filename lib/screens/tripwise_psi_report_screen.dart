@@ -798,6 +798,14 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                               // Company and Trip Details
                               if (_psiRecords.isNotEmpty) ...[
                                 Text(
+                                  _psiRecords.first.trainName,
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 13 : 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: isMobile ? 4 : 8),
+                                Text(
                                   'OBHS Activity in AC / NAC Coaches',
                                   style: TextStyle(
                                     fontSize: isMobile ? 12 : 14,
@@ -821,41 +829,12 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                                     fontSize: isMobile ? 11 : 13,
                                   ),
                                 ),
-                                SizedBox(height: isMobile ? 4 : 8),
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Train No: ${_psiRecords.first.trainNo}',
-                                      style: TextStyle(
-                                        fontSize: isMobile ? 11 : 13,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Train Name: ${_psiRecords.first.trainName}',
-                                        style: TextStyle(
-                                          fontSize: isMobile ? 11 : 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Trip ID: ${_psiRecords.first.tripId}',
-                                      style: TextStyle(
-                                        fontSize: isMobile ? 11 : 13,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
+                                Text(
+                                  'Trip ID: ${_psiRecords.first.tripId}',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 11 : 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                               SizedBox(height: isMobile ? 12 : 20),
@@ -873,7 +852,7 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  'Total Feedback : ${_psiRecords.length} | Attended : ${_psiRecords.length} | Not Attended: 0| Total PSI : ${_psiRecords.fold<double>(0, (sum, record) => sum + record.psiScore).toStringAsFixed(2)}',
+                                  'Total Feedback : ${_psiRecords.length} | Attended : ${_psiRecords.length} | Not Attended: 0 | Total PSI : ${(_psiRecords.fold<double>(0, (sum, record) => sum + record.psiScore) / _psiRecords.length).toStringAsFixed(2)}',
                                   style: TextStyle(
                                     fontSize: isMobile ? 12 : 16,
                                     fontWeight: FontWeight.bold,
