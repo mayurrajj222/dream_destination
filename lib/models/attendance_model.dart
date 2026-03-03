@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart'; // Commented out for Supabase migration
 
 class Attendance {
   final String? id;
@@ -42,12 +42,12 @@ class Attendance {
       'trainNo': trainNo,
       'trainName': trainName,
       'scheduleId': scheduleId,
-      'date': Timestamp.fromDate(date),
+      'date': date.toIso8601String(),
       'tripType': tripType,
       'isPresent': isPresent,
       'remarks': remarks,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
     };
   }
 
@@ -61,15 +61,15 @@ class Attendance {
       trainNo: map['trainNo'] ?? '',
       trainName: map['trainName'] ?? '',
       scheduleId: map['scheduleId'] ?? '',
-      date: (map['date'] as Timestamp).toDate(),
+      date: DateTime.parse(map['date']),
       tripType: map['tripType'] ?? 'Going',
       isPresent: map['isPresent'] ?? true,
       remarks: map['remarks'],
       createdAt: map['createdAt'] != null 
-          ? (map['createdAt'] as Timestamp).toDate() 
+          ? DateTime.parse(map['createdAt']) 
           : DateTime.now(),
       updatedAt: map['updatedAt'] != null 
-          ? (map['updatedAt'] as Timestamp).toDate() 
+          ? DateTime.parse(map['updatedAt']) 
           : null,
     );
   }

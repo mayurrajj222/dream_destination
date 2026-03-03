@@ -798,7 +798,7 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                               // Company and Trip Details
                               if (_psiRecords.isNotEmpty) ...[
                                 Text(
-                                  _psiRecords.first.trainName,
+                                  'Train ${_psiRecords.first.trainNo}',
                                   style: TextStyle(
                                     fontSize: isMobile ? 13 : 16,
                                     fontWeight: FontWeight.bold,
@@ -806,9 +806,17 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                                 ),
                                 SizedBox(height: isMobile ? 4 : 8),
                                 Text(
+                                  _psiRecords.first.ehkName,
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 12 : 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: isMobile ? 4 : 8),
+                                Text(
                                   'OBHS Activity in AC / NAC Coaches',
                                   style: TextStyle(
-                                    fontSize: isMobile ? 12 : 14,
+                                    fontSize: isMobile ? 11 : 13,
                                   ),
                                 ),
                                 Text(

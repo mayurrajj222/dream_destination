@@ -213,6 +213,7 @@ class _PSIFormScreenState extends State<PSIFormScreen> {
 
       final record = PSIRecord(
         id: widget.record?.id,
+        userId: widget.record?.userId ?? '', // Will be set by PSIService
         trainId: _selectedTrainId!,
         trainNo: selectedTrain.trainNoGoing,
         trainName: selectedTrain.trainNameGoing,
@@ -241,7 +242,7 @@ class _PSIFormScreenState extends State<PSIFormScreen> {
 
       final result = widget.record == null
           ? await _psiService.createPSIRecord(record)
-          : await _psiService.updatePSIRecord(widget.record!.id!, record);
+          : await _psiService.updatePSIRecord(record);
 
       setState(() => _isLoading = false);
 

@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class PSIRecord {
   final String? id;
+  final String userId; // User ID who created this record
   final String trainId;
   final String trainNo;
   final String trainName;
@@ -30,6 +29,7 @@ class PSIRecord {
 
   PSIRecord({
     this.id,
+    required this.userId,
     required this.trainId,
     required this.trainNo,
     required this.trainName,
@@ -56,65 +56,68 @@ class PSIRecord {
 
   Map<String, dynamic> toMap() {
     return {
-      'trainId': trainId,
-      'trainNo': trainNo,
-      'trainName': trainName,
-      'scheduleId': scheduleId,
-      'tripId': tripId,
-      'date': Timestamp.fromDate(date),
-      'passengerName': passengerName,
-      'pnrNo': pnrNo,
-      'mobileNo': mobileNo,
+      'user_id': userId,
+      'train_id': trainId.isEmpty ? null : trainId,
+      'train_no': trainNo,
+      'train_name': trainName,
+      'schedule_id': scheduleId.isEmpty ? null : scheduleId,
+      'trip_id': tripId,
+      'date': date.toIso8601String(),
+      'passenger_name': passengerName,
+      'pnr_no': pnrNo,
+      'mobile_no': mobileNo,
       'coach': coach,
-      'seatNo': seatNo,
-      'psiScore': psiScore,
+      'seat_no': seatNo,
+      'psi_score': psiScore,
       'feedback': feedback,
-      'tripType': tripType,
-      'ehkName': ehkName,
-      'service1Rating': service1Rating,
-      'service2Rating': service2Rating,
-      'service3Rating': service3Rating,
-      'service4Rating': service4Rating,
-      'service5Rating': service5Rating,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
+      'trip_type': tripType,
+      'ehk_name': ehkName,
+      'service1_rating': service1Rating,
+      'service2_rating': service2Rating,
+      'service3_rating': service3Rating,
+      'service4_rating': service4Rating,
+      'service5_rating': service5Rating,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 
   factory PSIRecord.fromMap(Map<String, dynamic> map, String documentId) {
     return PSIRecord(
       id: documentId,
-      trainId: map['trainId'] ?? '',
-      trainNo: map['trainNo'] ?? '',
-      trainName: map['trainName'] ?? '',
-      scheduleId: map['scheduleId'] ?? '',
-      tripId: map['tripId'] ?? '',
-      date: (map['date'] as Timestamp).toDate(),
-      passengerName: map['passengerName'] ?? '',
-      pnrNo: map['pnrNo'] ?? '',
-      mobileNo: map['mobileNo'] ?? '',
+      userId: map['user_id'] ?? '',
+      trainId: map['train_id'] ?? '',
+      trainNo: map['train_no'] ?? '',
+      trainName: map['train_name'] ?? '',
+      scheduleId: map['schedule_id'] ?? '',
+      tripId: map['trip_id'] ?? '',
+      date: DateTime.parse(map['date']),
+      passengerName: map['passenger_name'] ?? '',
+      pnrNo: map['pnr_no'] ?? '',
+      mobileNo: map['mobile_no'] ?? '',
       coach: map['coach'] ?? '',
-      seatNo: map['seatNo'] ?? '',
-      psiScore: (map['psiScore'] ?? 0).toDouble(),
+      seatNo: map['seat_no'] ?? '',
+      psiScore: (map['psi_score'] ?? 0).toDouble(),
       feedback: map['feedback'],
-      tripType: map['tripType'] ?? 'Going',
-      ehkName: map['ehkName'] ?? '',
-      service1Rating: map['service1Rating'],
-      service2Rating: map['service2Rating'],
-      service3Rating: map['service3Rating'],
-      service4Rating: map['service4Rating'],
-      service5Rating: map['service5Rating'],
-      createdAt: map['createdAt'] != null 
-          ? (map['createdAt'] as Timestamp).toDate() 
+      tripType: map['trip_type'] ?? 'Going',
+      ehkName: map['ehk_name'] ?? '',
+      service1Rating: map['service1_rating'],
+      service2Rating: map['service2_rating'],
+      service3Rating: map['service3_rating'],
+      service4Rating: map['service4_rating'],
+      service5Rating: map['service5_rating'],
+      createdAt: map['created_at'] != null 
+          ? DateTime.parse(map['created_at'])
           : DateTime.now(),
-      updatedAt: map['updatedAt'] != null 
-          ? (map['updatedAt'] as Timestamp).toDate() 
+      updatedAt: map['updated_at'] != null 
+          ? DateTime.parse(map['updated_at'])
           : null,
     );
   }
 
   PSIRecord copyWith({
     String? id,
+    String? userId,
     String? trainId,
     String? trainNo,
     String? trainName,
@@ -140,6 +143,7 @@ class PSIRecord {
   }) {
     return PSIRecord(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       trainId: trainId ?? this.trainId,
       trainNo: trainNo ?? this.trainNo,
       trainName: trainName ?? this.trainName,

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart'; // TODO: Migrate to Supabase
 
 class EHKStaff {
   final String? id;
@@ -23,7 +23,7 @@ class EHKStaff {
       'userId': userId,
       'password': password,
       'userName': userName,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 
@@ -34,7 +34,7 @@ class EHKStaff {
       userId: map['userId'] ?? '',
       password: map['password'] ?? '',
       userName: map['userName'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      createdAt: DateTime.parse(map['createdAt']),
     );
   }
 }

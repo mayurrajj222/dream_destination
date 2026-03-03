@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart'; // TODO: Migrate to Supabase
 
 class TripCard {
   final String? id;
@@ -35,13 +35,13 @@ class TripCard {
       'trainNo': trainNo,
       'trainName': trainName,
       'ehkName': ehkName,
-      'tripStartDate': Timestamp.fromDate(tripStartDate),
-      'tripEndDate': Timestamp.fromDate(tripEndDate),
+      'tripStartDate': tripStartDate.toIso8601String(),
+      'tripEndDate': tripEndDate.toIso8601String(),
       'stationFrom': stationFrom,
       'stationTo': stationTo,
       'division': division,
       'activity': activity,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 
@@ -52,13 +52,13 @@ class TripCard {
       trainNo: map['trainNo'] ?? '',
       trainName: map['trainName'] ?? '',
       ehkName: map['ehkName'] ?? '',
-      tripStartDate: (map['tripStartDate'] as Timestamp).toDate(),
-      tripEndDate: (map['tripEndDate'] as Timestamp).toDate(),
+      tripStartDate: DateTime.parse(map['tripStartDate']),
+      tripEndDate: DateTime.parse(map['tripEndDate']),
       stationFrom: map['stationFrom'] ?? '',
       stationTo: map['stationTo'] ?? '',
       division: map['division'] ?? '',
       activity: map['activity'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      createdAt: DateTime.parse(map['createdAt']),
     );
   }
 }

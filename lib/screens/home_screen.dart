@@ -100,7 +100,7 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'User ID: ${user?.uid.substring(0, 8) ?? 'N/A'}...',
+                        'User ID: ${user?.id.substring(0, 8) ?? 'N/A'}...',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey.shade600,

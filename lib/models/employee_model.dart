@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart'; // TODO: Migrate to Supabase
 
 class Employee {
   final String? id;
@@ -35,7 +35,7 @@ class Employee {
     this.updatedAt,
   });
 
-  // Convert Employee to Map for Firestore
+  // Convert Employee to Map
   Map<String, dynamic> toMap() {
     return {
       'employeeCode': employeeCode,
@@ -50,12 +50,12 @@ class Employee {
       'photoUrl': photoUrl,
       'documentUrl': documentUrl,
       'isPhotoUpload': isPhotoUpload,
-      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
     };
   }
 
-  // Create Employee from Firestore document
+  // Create Employee from Map
   factory Employee.fromMap(Map<String, dynamic> map, String documentId) {
     return Employee(
       id: documentId,
@@ -72,10 +72,10 @@ class Employee {
       documentUrl: map['documentUrl'],
       isPhotoUpload: map['isPhotoUpload'] ?? false,
       createdAt: map['createdAt'] != null 
-          ? (map['createdAt'] as Timestamp).toDate() 
+          ? DateTime.parse(map['createdAt']) 
           : null,
       updatedAt: map['updatedAt'] != null 
-          ? (map['updatedAt'] as Timestamp).toDate() 
+          ? DateTime.parse(map['updatedAt']) 
           : null,
     );
   }

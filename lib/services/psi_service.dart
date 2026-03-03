@@ -1,21 +1,36 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/psi_record_model.dart';
 
 class PSIService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String collectionName = 'psi_records';
+  final SupabaseClient _supabase = Supabase.instance.client;
+  final String tableName = 'psi_records';
+
+  // Get current user ID
+  String? get currentUserId => _supabase.auth.currentUser?.id;
 
   // Create PSI record
   Future<Map<String, dynamic>> createPSIRecord(PSIRecord record) async {
     try {
-      DocumentReference docRef = await _firestore
-          .collection(collectionName)
-          .add(record.toMap());
+      if (currentUserId == null) {
+        return {
+          'success': false,
+          'message': 'User not authenticated',
+        };
+      }
+
+      // Ensure userId is set to current user
+      final recordData = record.copyWith(userId: currentUserId!).toMap();
+      
+      final response = await _supabase
+          .from(tableName)
+          .insert(recordData)
+          .select()
+          .single();
 
       return {
         'success': true,
         'message': 'PSI record created successfully',
-        'recordId': docRef.id,
+        'recordId': response['id'],
       };
     } catch (e) {
       return {
@@ -25,24 +40,24 @@ class PSIService {
     }
   }
 
-  // Get PSI records by date range
+  // Get PSI records by date range (filtered by current user)
   Future<List<PSIRecord>> getPSIRecordsByDateRange(
     DateTime fromDate,
     DateTime toDate,
   ) async {
     try {
-      QuerySnapshot querySnapshot = await _firestore
-          .collection(collectionName)
-          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(fromDate))
-          .where('date', isLessThanOrEqualTo: Timestamp.fromDate(toDate))
-          .orderBy('date', descending: false)
-          .get();
+      if (currentUserId == null) return [];
 
-      return querySnapshot.docs
-          .map((doc) => PSIRecord.fromMap(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+      final response = await _supabase
+          .from(tableName)
+          .select()
+          .eq('user_id', currentUserId!)
+          .gte('date', fromDate.toIso8601String())
+          .lte('date', toDate.toIso8601String())
+          .order('date', ascending: true);
+
+      return (response as List)
+          .map((data) => PSIRecord.fromMap(data, data['id']))
           .toList();
     } catch (e) {
       print('Error getting PSI records by date range: $e');
@@ -50,26 +65,26 @@ class PSIService {
     }
   }
 
-  // Get PSI records by train and date range
+  // Get PSI records by train and date range (filtered by current user)
   Future<List<PSIRecord>> getPSIRecordsByTrainAndDateRange(
     String trainId,
     DateTime fromDate,
     DateTime toDate,
   ) async {
     try {
-      QuerySnapshot querySnapshot = await _firestore
-          .collection(collectionName)
-          .where('trainId', isEqualTo: trainId)
-          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(fromDate))
-          .where('date', isLessThanOrEqualTo: Timestamp.fromDate(toDate))
-          .orderBy('date', descending: false)
-          .get();
+      if (currentUserId == null) return [];
 
-      return querySnapshot.docs
-          .map((doc) => PSIRecord.fromMap(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+      final response = await _supabase
+          .from(tableName)
+          .select()
+          .eq('user_id', currentUserId!)
+          .eq('train_id', trainId)
+          .gte('date', fromDate.toIso8601String())
+          .lte('date', toDate.toIso8601String())
+          .order('date', ascending: true);
+
+      return (response as List)
+          .map((data) => PSIRecord.fromMap(data, data['id']))
           .toList();
     } catch (e) {
       print('Error getting PSI records by train: $e');
@@ -77,20 +92,20 @@ class PSIService {
     }
   }
 
-  // Get PSI records by trip
+  // Get PSI records by trip (filtered by current user)
   Future<List<PSIRecord>> getPSIRecordsByTrip(String tripId) async {
     try {
-      QuerySnapshot querySnapshot = await _firestore
-          .collection(collectionName)
-          .where('tripId', isEqualTo: tripId)
-          .orderBy('date', descending: false)
-          .get();
+      if (currentUserId == null) return [];
 
-      return querySnapshot.docs
-          .map((doc) => PSIRecord.fromMap(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+      final response = await _supabase
+          .from(tableName)
+          .select()
+          .eq('user_id', currentUserId!)
+          .eq('trip_id', tripId)
+          .order('date', ascending: true);
+
+      return (response as List)
+          .map((data) => PSIRecord.fromMap(data, data['id']))
           .toList();
     } catch (e) {
       print('Error getting PSI records by trip: $e');
@@ -98,7 +113,7 @@ class PSIService {
     }
   }
 
-  // Get PSI records with filters
+  // Get PSI records with filters (filtered by current user)
   Future<List<PSIRecord>> getPSIRecordsByFilters({
     required DateTime fromDate,
     required DateTime toDate,
@@ -106,27 +121,27 @@ class PSIService {
     String? tripType,
   }) async {
     try {
-      Query query = _firestore.collection(collectionName);
+      if (currentUserId == null) return [];
 
-      query = query
-          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(fromDate))
-          .where('date', isLessThanOrEqualTo: Timestamp.fromDate(toDate));
+      var query = _supabase
+          .from(tableName)
+          .select()
+          .eq('user_id', currentUserId!)
+          .gte('date', fromDate.toIso8601String())
+          .lte('date', toDate.toIso8601String());
 
       if (trainId != null && trainId.isNotEmpty) {
-        query = query.where('trainId', isEqualTo: trainId);
+        query = query.eq('train_id', trainId);
       }
 
       if (tripType != null && tripType.isNotEmpty && tripType != 'All') {
-        query = query.where('tripType', isEqualTo: tripType);
+        query = query.eq('trip_type', tripType);
       }
 
-      QuerySnapshot querySnapshot = await query.orderBy('date', descending: false).get();
+      final response = await query.order('date', ascending: true);
 
-      return querySnapshot.docs
-          .map((doc) => PSIRecord.fromMap(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              ))
+      return (response as List)
+          .map((data) => PSIRecord.fromMap(data, data['id']))
           .toList();
     } catch (e) {
       print('Error getting PSI records by filters: $e');
@@ -134,14 +149,14 @@ class PSIService {
     }
   }
 
-  // Get PSI summary statistics
+  // Get PSI summary statistics (filtered by current user)
   Future<Map<String, dynamic>> getPSISummary(
     DateTime fromDate,
     DateTime toDate,
   ) async {
     try {
       final records = await getPSIRecordsByDateRange(fromDate, toDate);
-      
+
       if (records.isEmpty) {
         return {
           'totalRecords': 0,
@@ -154,21 +169,20 @@ class PSIService {
         };
       }
 
-      double totalPSI = 0;
-      double highestPSI = records.first.psiScore;
-      double lowestPSI = records.first.psiScore;
+      final psiScores = records.map((r) => r.psiScore).toList();
+      final totalPSI = psiScores.reduce((a, b) => a + b);
+      final averagePSI = totalPSI / records.length;
+      final highestPSI = psiScores.reduce((a, b) => a > b ? a : b);
+      final lowestPSI = psiScores.reduce((a, b) => a < b ? a : b);
+
       int above90 = 0;
       int between70and90 = 0;
       int below70 = 0;
 
-      for (var record in records) {
-        totalPSI += record.psiScore;
-        if (record.psiScore > highestPSI) highestPSI = record.psiScore;
-        if (record.psiScore < lowestPSI) lowestPSI = record.psiScore;
-
-        if (record.psiScore >= 90) {
+      for (var score in psiScores) {
+        if (score >= 90) {
           above90++;
-        } else if (record.psiScore >= 70) {
+        } else if (score >= 70) {
           between70and90++;
         } else {
           below70++;
@@ -177,7 +191,7 @@ class PSIService {
 
       return {
         'totalRecords': records.length,
-        'averagePSI': totalPSI / records.length,
+        'averagePSI': averagePSI,
         'highestPSI': highestPSI,
         'lowestPSI': lowestPSI,
         'above90': above90,
@@ -198,55 +212,31 @@ class PSIService {
     }
   }
 
-  // Get trainwise PSI summary
-  Future<Map<String, Map<String, dynamic>>> getTrainwisePSISummary(
-    DateTime fromDate,
-    DateTime toDate,
-  ) async {
+  // Update PSI record
+  Future<Map<String, dynamic>> updatePSIRecord(PSIRecord record) async {
     try {
-      final records = await getPSIRecordsByDateRange(fromDate, toDate);
-      Map<String, List<PSIRecord>> trainGroups = {};
-
-      // Group by train
-      for (var record in records) {
-        if (!trainGroups.containsKey(record.trainNo)) {
-          trainGroups[record.trainNo] = [];
-        }
-        trainGroups[record.trainNo]!.add(record);
+      if (currentUserId == null) {
+        return {
+          'success': false,
+          'message': 'User not authenticated',
+        };
       }
 
-      // Calculate summary for each train
-      Map<String, Map<String, dynamic>> summary = {};
-      trainGroups.forEach((trainNo, trainRecords) {
-        double totalPSI = 0;
-        for (var record in trainRecords) {
-          totalPSI += record.psiScore;
-        }
-
-        summary[trainNo] = {
-          'trainName': trainRecords.first.trainName,
-          'totalRecords': trainRecords.length,
-          'averagePSI': totalPSI / trainRecords.length,
+      if (record.id == null) {
+        return {
+          'success': false,
+          'message': 'Record ID is required for update',
         };
-      });
+      }
 
-      return summary;
-    } catch (e) {
-      print('Error getting trainwise PSI summary: $e');
-      return {};
-    }
-  }
+      final recordData = record.toMap();
+      recordData['updated_at'] = DateTime.now().toIso8601String();
 
-  // Update PSI record
-  Future<Map<String, dynamic>> updatePSIRecord(
-    String recordId,
-    PSIRecord record,
-  ) async {
-    try {
-      await _firestore
-          .collection(collectionName)
-          .doc(recordId)
-          .update(record.toMap());
+      await _supabase
+          .from(tableName)
+          .update(recordData)
+          .eq('id', record.id!)
+          .eq('user_id', currentUserId!);
 
       return {
         'success': true,
@@ -263,7 +253,18 @@ class PSIService {
   // Delete PSI record
   Future<Map<String, dynamic>> deletePSIRecord(String recordId) async {
     try {
-      await _firestore.collection(collectionName).doc(recordId).delete();
+      if (currentUserId == null) {
+        return {
+          'success': false,
+          'message': 'User not authenticated',
+        };
+      }
+
+      await _supabase
+          .from(tableName)
+          .delete()
+          .eq('id', recordId)
+          .eq('user_id', currentUserId!);
 
       return {
         'success': true,

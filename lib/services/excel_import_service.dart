@@ -13,14 +13,20 @@ class ExcelImportService {
   /// Find or create train by train number
   Future<String?> _findOrCreateTrain(String trainNo, String trainName) async {
     try {
+      print('ExcelImport: Finding/creating train $trainNo - $trainName');
+      
       // First, try to find existing train by train number
       final allTrains = await _trainService.getAllTrains();
+      print('ExcelImport: Found ${allTrains.length} existing trains');
       
       for (var train in allTrains) {
         if (train.trainNoGoing == trainNo || train.trainNoComing == trainNo) {
+          print('ExcelImport: Train $trainNo already exists with ID: ${train.id}');
           return train.id;
         }
       }
+      
+      print('ExcelImport: Train $trainNo not found, creating new one');
       
       // Train not found, create a new one
       final newTrain = Train(
@@ -39,14 +45,17 @@ class ExcelImportService {
       );
       
       final result = await _trainService.createTrain(newTrain);
+      print('ExcelImport: Create train result: $result');
       
-      if (result['success']) {
+      if (result['success'] || result['trainId'] != null) {
+        // Return trainId even if it says not success but has trainId (means it already existed)
         return result['trainId'];
       }
       
+      print('ExcelImport: Failed to create train: ${result['message']}');
       return null;
     } catch (e) {
-      print('Error finding/creating train: $e');
+      print('ExcelImport: Error finding/creating train: $e');
       return null;
     }
   }
@@ -169,6 +178,7 @@ class ExcelImportService {
 
           // Create PSI record
           final record = PSIRecord(
+            userId: '', // Will be set by PSIService when saving
             trainId: '', // Will be set after finding/creating train
             trainNo: currentTrainNo.isNotEmpty ? currentTrainNo : (metadata['trainNo'] ?? ''),
             trainName: metadata['trainName'] ?? 'Unknown Train',
