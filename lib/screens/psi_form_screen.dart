@@ -28,6 +28,7 @@ class _PSIFormScreenState extends State<PSIFormScreen> {
   final _psiScoreController = TextEditingController();
   final _feedbackController = TextEditingController();
   final _ehkNameController = TextEditingController();
+  final _companyNameController = TextEditingController();
   final _tripIdController = TextEditingController();
 
   DateTime _selectedDate = DateTime.now();
@@ -93,6 +94,7 @@ class _PSIFormScreenState extends State<PSIFormScreen> {
     _psiScoreController.text = record.psiScore.toString();
     _feedbackController.text = record.feedback ?? '';
     _ehkNameController.text = record.ehkName;
+    _companyNameController.text = record.companyName ?? '';
     _tripIdController.text = record.tripId;
     _selectedDate = record.date;
     _selectedTrainId = record.trainId;
@@ -231,6 +233,9 @@ class _PSIFormScreenState extends State<PSIFormScreen> {
             : _feedbackController.text.trim(),
         tripType: _selectedTripType,
         ehkName: _ehkNameController.text.trim(),
+        companyName: _companyNameController.text.trim().isEmpty 
+            ? null 
+            : _companyNameController.text.trim(),
         service1Rating: _service1Rating,
         service2Rating: _service2Rating,
         service3Rating: _service3Rating,
@@ -271,6 +276,7 @@ class _PSIFormScreenState extends State<PSIFormScreen> {
     _psiScoreController.dispose();
     _feedbackController.dispose();
     _ehkNameController.dispose();
+    _companyNameController.dispose();
     _tripIdController.dispose();
     super.dispose();
   }
@@ -518,8 +524,9 @@ class _PSIFormScreenState extends State<PSIFormScreen> {
                     TextFormField(
                       controller: _ehkNameController,
                       decoration: const InputDecoration(
-                        labelText: 'EHK Name',
+                        labelText: 'EHK Name (Person)',
                         border: OutlineInputBorder(),
+                        helperText: 'Employee/Person name (e.g., Dharmander Kumar)',
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -527,6 +534,17 @@ class _PSIFormScreenState extends State<PSIFormScreen> {
                         }
                         return null;
                       },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Company Name
+                    TextFormField(
+                      controller: _companyNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Company Name (Optional)',
+                        border: OutlineInputBorder(),
+                        helperText: 'Business/Company name (e.g., R. N. INDUSTRIES)',
+                      ),
                     ),
                     const SizedBox(height: 24),
                     

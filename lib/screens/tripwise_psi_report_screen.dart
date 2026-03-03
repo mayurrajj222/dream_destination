@@ -797,18 +797,20 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                               
                               // Company and Trip Details
                               if (_psiRecords.isNotEmpty) ...[
+                                // Show company name if available, otherwise show EHK name
+                                Text(
+                                  _psiRecords.first.companyName ?? _psiRecords.first.ehkName,
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 14 : 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade900,
+                                  ),
+                                ),
+                                SizedBox(height: isMobile ? 8 : 12),
                                 Text(
                                   'Train ${_psiRecords.first.trainNo}',
                                   style: TextStyle(
                                     fontSize: isMobile ? 13 : 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: isMobile ? 4 : 8),
-                                Text(
-                                  _psiRecords.first.ehkName,
-                                  style: TextStyle(
-                                    fontSize: isMobile ? 12 : 15,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

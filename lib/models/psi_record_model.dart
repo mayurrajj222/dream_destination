@@ -15,7 +15,8 @@ class PSIRecord {
   final double psiScore; // PSI score (0-100)
   final String? feedback;
   final String tripType; // 'Going' or 'Coming'
-  final String ehkName; // EHK (Employee) Name
+  final String ehkName; // EHK (Employee) Name - e.g., "Dharmander Kumar"
+  final String? companyName; // Company Name - e.g., "R. N. INDUSTRIES"
   
   // Service ratings (for AC coaches - 5 services)
   final String? service1Rating; // Toiletries availability
@@ -45,6 +46,7 @@ class PSIRecord {
     this.feedback,
     required this.tripType,
     required this.ehkName,
+    this.companyName,
     this.service1Rating,
     this.service2Rating,
     this.service3Rating,
@@ -72,6 +74,7 @@ class PSIRecord {
       'feedback': feedback,
       'trip_type': tripType,
       'ehk_name': ehkName,
+      'company_name': companyName,
       'service1_rating': service1Rating,
       'service2_rating': service2Rating,
       'service3_rating': service3Rating,
@@ -101,6 +104,7 @@ class PSIRecord {
       feedback: map['feedback'],
       tripType: map['trip_type'] ?? 'Going',
       ehkName: map['ehk_name'] ?? '',
+      companyName: map['company_name'],
       service1Rating: map['service1_rating'],
       service2Rating: map['service2_rating'],
       service3Rating: map['service3_rating'],
@@ -133,6 +137,7 @@ class PSIRecord {
     String? feedback,
     String? tripType,
     String? ehkName,
+    String? companyName,
     String? service1Rating,
     String? service2Rating,
     String? service3Rating,
@@ -159,6 +164,7 @@ class PSIRecord {
       feedback: feedback ?? this.feedback,
       tripType: tripType ?? this.tripType,
       ehkName: ehkName ?? this.ehkName,
+      companyName: companyName ?? this.companyName,
       service1Rating: service1Rating ?? this.service1Rating,
       service2Rating: service2Rating ?? this.service2Rating,
       service3Rating: service3Rating ?? this.service3Rating,

@@ -193,6 +193,7 @@ class ExcelImportService {
             psiScore: psiScore,
             tripType: 'Going',
             ehkName: metadata['ehkName'] ?? 'Unknown',
+            companyName: metadata['companyName'], // Extract company name from Excel
             createdAt: DateTime.now(),
           );
 
@@ -318,6 +319,42 @@ class ExcelImportService {
       if (row.isEmpty) continue;
 
       final cellValue = row[0]?.value?.toString() ?? '';
+
+      // Extract Company Name from "Trainwise PSI Report" column header
+      // Format: "Trainwise PSI Report\nR. N. INDUSTRIES" or similar
+      if (cellValue.contains('Trainwise PSI Report')) {
+        // Look for company name in the same cell or next row
+        final lines = cellValue.split('\n');
+        if (lines.length > 1) {
+          // Company name is on the next line after "Trainwise PSI Report"
+          for (int j = 1; j < lines.length; j++) {
+            final line = lines[j].trim();
+            if (line.isNotEmpty && 
+                !line.contains('EHK Name') && 
+                !line.contains('Trip ID') &&
+                !line.contains('Train No') &&
+                !line.contains('Trip Period')) {
+              metadata['companyName'] = line;
+              break;
+            }
+          }
+        }
+        
+        // Also check the next row if company name not found in same cell
+        if (!metadata.containsKey('companyName') && i + 1 < table.rows.length) {
+          final nextRow = table.rows[i + 1];
+          if (nextRow.isNotEmpty) {
+            final nextCellValue = nextRow[0]?.value?.toString().trim() ?? '';
+            if (nextCellValue.isNotEmpty && 
+                !nextCellValue.contains(':') &&
+                !nextCellValue.contains('EHK Name') &&
+                !nextCellValue.contains('Trip ID') &&
+                !nextCellValue.contains('Train No')) {
+              metadata['companyName'] = nextCellValue;
+            }
+          }
+        }
+      }
 
       // Extract Train No from "Train No: XXXXX" or "Train No: XXXXX - Train Name" format
       if (cellValue.contains('Train No:')) {
