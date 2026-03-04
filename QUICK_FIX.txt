@@ -1,0 +1,50 @@
+╔══════════════════════════════════════════════════════════════╗
+║           EXCEL IMPORT FIX - QUICK REFERENCE                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+PROBLEM: Import shows "Successfully Imported: 0, Errors: 50"
+
+CAUSE: Missing database column + train_id constraint
+
+FIX: Run this SQL in Supabase Dashboard → SQL Editor:
+
+┌──────────────────────────────────────────────────────────────┐
+│ ALTER TABLE psi_records                                      │
+│ ADD COLUMN IF NOT EXISTS company_name TEXT;                  │
+│                                                              │
+│ ALTER TABLE psi_records                                      │
+│ ALTER COLUMN train_id DROP NOT NULL;                         │
+└──────────────────────────────────────────────────────────────┘
+
+STEPS:
+1. Open Supabase Dashboard
+2. Go to SQL Editor
+3. Copy and paste the SQL above
+4. Click "Run"
+5. Try Excel import again
+
+RESULT: Import should now work!
+
+═══════════════════════════════════════════════════════════════
+
+WHAT WAS CHANGED IN CODE:
+✓ Better error messages in import dialog
+✓ Detailed console logging
+✓ Validation before saving records
+
+FILES TO READ:
+• IMPORT_FIX_SUMMARY.md - Quick overview
+• FIX_EXCEL_IMPORT_ISSUES.md - Detailed technical info
+• VISUAL_FIX_GUIDE.md - Visual walkthrough
+• FIX_PSI_IMPORT_DATABASE.sql - Complete SQL script
+
+═══════════════════════════════════════════════════════════════
+
+STILL HAVING ISSUES?
+1. Open browser console (F12)
+2. Look for error messages starting with "ExcelImport:"
+3. Check the import dialog for specific error details
+4. Verify you're logged in
+5. Check that train exists in trains table
+
+═══════════════════════════════════════════════════════════════

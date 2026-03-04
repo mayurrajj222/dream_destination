@@ -224,21 +224,54 @@ class ExcelImportService {
       String? trainId;
       if (trainNo.isNotEmpty) {
         trainId = await _findOrCreateTrain(trainNo, trainName);
+        
+        if (trainId == null) {
+          print('ERROR: Failed to find or create train for Train No: $trainNo');
+          return {
+            'success': false,
+            'message': 'Failed to find or create train (Train No: $trainNo). Please create the train manually first.',
+            'totalRecords': records.length,
+            'successCount': 0,
+            'errorCount': records.length,
+          };
+        }
+      } else {
+        print('ERROR: No train number found in Excel file');
+        return {
+          'success': false,
+          'message': 'No train number found in Excel file. Please ensure the Excel file contains train information.',
+          'totalRecords': records.length,
+          'successCount': 0,
+          'errorCount': records.length,
+        };
       }
 
-      // Save records to Firebase
+      print('Using Train ID: $trainId for all records');
+
+      // Save records to Supabase
       for (var record in records) {
-        // Update record with trainId if found/created
-        final recordToSave = trainId != null 
-            ? record.copyWith(trainId: trainId)
-            : record;
-            
-        final result = await _psiService.createPSIRecord(recordToSave);
-        if (result['success']) {
-          successCount++;
-        } else {
+        try {
+          // Update record with trainId (guaranteed to be non-null at this point)
+          final recordToSave = record.copyWith(trainId: trainId);
+          
+          // Log the record being saved for debugging
+          print('Saving record: ${record.passengerName}, TrainID: ${recordToSave.trainId}, TripID: ${recordToSave.tripId}');
+              
+          final result = await _psiService.createPSIRecord(recordToSave);
+          if (result['success']) {
+            successCount++;
+            print('✓ Saved: ${record.passengerName}');
+          } else {
+            errorCount++;
+            final errorMsg = 'Failed to save ${record.passengerName}: ${result['message']}';
+            errors.add(errorMsg);
+            print('✗ $errorMsg');
+          }
+        } catch (e) {
           errorCount++;
-          errors.add('Failed to save: ${record.passengerName}');
+          final errorMsg = 'Exception saving ${record.passengerName}: ${e.toString()}';
+          errors.add(errorMsg);
+          print('✗ $errorMsg');
         }
       }
 

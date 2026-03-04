@@ -181,33 +181,65 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Import Successful'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Total Records: ${result['totalRecords']}'),
-                Text('Successfully Imported: ${result['successCount']}'),
-                if (result['errorCount'] > 0)
-                  Text(
-                    'Errors: ${result['errorCount']}',
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                const SizedBox(height: 12),
-                if (result['metadata'] != null) ...[
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Total Records: ${result['totalRecords']}'),
+                  Text('Successfully Imported: ${result['successCount']}'),
+                  if (result['errorCount'] > 0)
+                    Text(
+                      'Errors: ${result['errorCount']}',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  const SizedBox(height: 12),
+                  if (result['metadata'] != null) ...[
+                    const Text(
+                      'Metadata:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text('EHK Name: ${result['metadata']['ehkName'] ?? 'N/A'}'),
+                    Text('Trip ID: ${result['metadata']['tripId'] ?? 'N/A'}'),
+                    Text('Train No: ${result['metadata']['trainNo'] ?? 'N/A'}'),
+                  ],
+                  if (result['errorCount'] > 0 && result['errors'] != null && (result['errors'] as List).isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Error Details:',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: (result['errors'] as List).take(10).map((error) => 
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                '• $error',
+                                style: const TextStyle(fontSize: 12, color: Colors.red),
+                              ),
+                            )
+                          ).toList(),
+                        ),
+                      ),
+                    ),
+                    if ((result['errors'] as List).length > 10)
+                      Text(
+                        '... and ${(result['errors'] as List).length - 10} more errors',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                  ],
+                  const SizedBox(height: 12),
                   const Text(
-                    'Metadata:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    'Train has been auto-selected. Click Show to view data.',
+                    style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
                   ),
-                  Text('EHK Name: ${result['metadata']['ehkName'] ?? 'N/A'}'),
-                  Text('Trip ID: ${result['metadata']['tripId'] ?? 'N/A'}'),
-                  Text('Train No: ${result['metadata']['trainNo'] ?? 'N/A'}'),
                 ],
-                const SizedBox(height: 12),
-                const Text(
-                  'Train has been auto-selected. Click Show to view data.',
-                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-                ),
-              ],
+              ),
             ),
             actions: [
               TextButton(
