@@ -28,8 +28,8 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
   List<String> _availableTrips = ['--Please Select Trips--'];
   String? _selectedTrainId;
   String _selectedTrip = '--Please Select Trips--';
-  DateTime _fromDate = DateTime.now();
-  DateTime _toDate = DateTime.now();
+  DateTime _fromDate = DateTime(2020, 1, 1); // Wide date range to show all trips
+  DateTime _toDate = DateTime(2030, 12, 31); // Wide date range to show all trips
   bool _isLoading = false;
   bool _showReport = false;
   bool _isLoadingTrains = true;
@@ -83,35 +83,78 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
   }
 
   Future<void> _loadTripsForTrain() async {
-    if (_selectedTrainId == null) return;
+    if (_selectedTrainId == null) {
+      print('_loadTripsForTrain: No train selected');
+      return;
+    }
 
+    print('_loadTripsForTrain: Loading trips for train ID: $_selectedTrainId');
     setState(() => _isLoading = true);
     
     try {
       // Get the selected train
       final selectedTrain = _trains.firstWhere((t) => t.id == _selectedTrainId);
+      print('_loadTripsForTrain: Selected train: ${selectedTrain.trainNoGoing}');
       
-      // Fetch all PSI records
+      // Fetch ALL PSI records (not limited by date range)
+      // This ensures we see all available trips for this train
       final records = await _psiService.getPSIRecordsByDateRange(
         DateTime(2020, 1, 1),
-        DateTime.now().add(const Duration(days: 365)),
+        DateTime(2030, 12, 31), // Extended range to get all records
       );
       
-      // Filter by selected train number (check both going and coming)
+      print('_loadTripsForTrain: Total PSI records fetched: ${records.length}');
+      
+      // Debug: Check for Trip 11 in ALL records
+      final allTrip11 = records.where((r) => r.tripId == '11').toList();
+      print('_loadTripsForTrain: Trip 11 in ALL records: ${allTrip11.length}');
+      if (allTrip11.isNotEmpty) {
+        print('_loadTripsForTrain: Trip 11 ALL sample:');
+        for (var i = 0; i < allTrip11.length && i < 5; i++) {
+          print('  Trip 11 ALL Record $i: trainNo="${allTrip11[i].trainNo}", ehkName="${allTrip11[i].ehkName}", date=${allTrip11[i].date}');
+        }
+      }
+      
+      // NEW LOGIC: Find all trips that include the selected train
+      // First, get all records for this train
       final trainRecords = records.where((r) => 
         r.trainNo == selectedTrain.trainNoGoing || 
         r.trainNo == selectedTrain.trainNoComing
       ).toList();
       
+      print('_loadTripsForTrain: Records for this train: ${trainRecords.length}');
+      
+      // Get unique trip IDs from these records
+      final tripIdsForThisTrain = trainRecords.map((r) => r.tripId).toSet();
+      print('_loadTripsForTrain: Trip IDs for this train: $tripIdsForThisTrain');
+      
+      // Now get ALL records for these trip IDs (including other trains in the same trip)
+      final allRecordsForTheseTrips = records.where((r) => 
+        tripIdsForThisTrain.contains(r.tripId)
+      ).toList();
+      
+      print('_loadTripsForTrain: All records for these trips (including other trains): ${allRecordsForTheseTrips.length}');
+      
+      if (allRecordsForTheseTrips.isNotEmpty) {
+        print('_loadTripsForTrain: Sample records:');
+        for (var i = 0; i < allRecordsForTheseTrips.length && i < 10; i++) {
+          print('  Record $i: tripId="${allRecordsForTheseTrips[i].tripId}", trainNo="${allRecordsForTheseTrips[i].trainNo}", ehkName="${allRecordsForTheseTrips[i].ehkName}", date=${allRecordsForTheseTrips[i].date}');
+        }
+      }
+      
       // Group by trip ID and EHK Name combination to handle multiple trips on same day
       Map<String, PSIRecord> tripMap = {};
-      for (var record in trainRecords) {
+      for (var record in allRecordsForTheseTrips) {
         // Use tripId + ehkName as unique key to differentiate trips
         String uniqueKey = '${record.tripId}_${record.ehkName}';
         if (!tripMap.containsKey(uniqueKey)) {
           tripMap[uniqueKey] = record;
+          print('_loadTripsForTrain: Added trip key: "$uniqueKey" (tripId="${record.tripId}", trainNo="${record.trainNo}", ehkName="${record.ehkName}", date=${record.date})');
         }
       }
+      
+      print('_loadTripsForTrain: Unique trips found: ${tripMap.length}');
+      print('_loadTripsForTrain: All trip keys: ${tripMap.keys.toList()}');
       
       // Create trip display strings: "TripID | Date | TrainNo | EHK Name"
       List<String> tripDisplays = tripMap.entries.map((entry) {
@@ -122,11 +165,21 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
       
       tripDisplays.sort();
       
+      print('_loadTripsForTrain: Trip displays created: ${tripDisplays.length}');
+      if (tripDisplays.isNotEmpty) {
+        print('_loadTripsForTrain: First 10 trips:');
+        for (var i = 0; i < tripDisplays.length && i < 10; i++) {
+          print('  Trip $i: ${tripDisplays[i]}');
+        }
+      }
+      
       setState(() {
         _availableTrips = ['--Please Select Trips--', ...tripDisplays];
         _selectedTrip = '--Please Select Trips--';
         _isLoading = false;
       });
+      
+      print('_loadTripsForTrain: Trips loaded successfully. Available trips: ${_availableTrips.length}');
     } catch (e) {
       print('Error loading trips: $e');
       setState(() => _isLoading = false);
@@ -171,90 +224,107 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
               setState(() {
                 _selectedTrainId = train.id;
               });
+              // Load trips for the selected train
               await _loadTripsForTrain();
+              
+              print('Import: Train auto-selected: ${train.trainNoGoing}');
+              print('Import: Available trips after load: ${_availableTrips.length}');
+              print('Import: Trips: $_availableTrips');
+              
               break;
             }
           }
         }
         
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Import Successful'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Total Records: ${result['totalRecords']}'),
-                  Text('Successfully Imported: ${result['successCount']}'),
-                  if (result['errorCount'] > 0)
-                    Text(
-                      'Errors: ${result['errorCount']}',
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  const SizedBox(height: 12),
-                  if (result['metadata'] != null) ...[
-                    const Text(
-                      'Metadata:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text('EHK Name: ${result['metadata']['ehkName'] ?? 'N/A'}'),
-                    Text('Trip ID: ${result['metadata']['tripId'] ?? 'N/A'}'),
-                    Text('Train No: ${result['metadata']['trainNo'] ?? 'N/A'}'),
-                  ],
-                  if (result['errorCount'] > 0 && result['errors'] != null && (result['errors'] as List).isNotEmpty) ...[
+        // Show success dialog
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Import Successful'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Total Records: ${result['totalRecords']}'),
+                    Text('Successfully Imported: ${result['successCount']}'),
+                    if (result['errorCount'] > 0)
+                      Text(
+                        'Errors: ${result['errorCount']}',
+                        style: const TextStyle(color: Colors.red),
+                      ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Error Details:',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      constraints: const BoxConstraints(maxHeight: 200),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: (result['errors'] as List).take(10).map((error) => 
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                '• $error',
-                                style: const TextStyle(fontSize: 12, color: Colors.red),
-                              ),
-                            )
-                          ).toList(),
+                    if (result['metadata'] != null) ...[
+                      const Text(
+                        'Metadata:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text('EHK Name: ${result['metadata']['ehkName'] ?? 'N/A'}'),
+                      Text('Trip ID: ${result['metadata']['tripId'] ?? 'N/A'}'),
+                      Text('Train No: ${result['metadata']['trainNo'] ?? 'N/A'}'),
+                    ],
+                    if (result['errorCount'] > 0 && result['errors'] != null && (result['errors'] as List).isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Error Details:',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: (result['errors'] as List).take(10).map((error) => 
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  '• $error',
+                                  style: const TextStyle(fontSize: 12, color: Colors.red),
+                                ),
+                              )
+                            ).toList(),
+                          ),
                         ),
                       ),
-                    ),
-                    if ((result['errors'] as List).length > 10)
+                      if ((result['errors'] as List).length > 10)
+                        Text(
+                          '... and ${(result['errors'] as List).length - 10} more errors',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                    ],
+                    const SizedBox(height: 12),
+                    if (_availableTrips.length > 1) ...[
                       Text(
-                        '... and ${(result['errors'] as List).length - 10} more errors',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        'Train has been auto-selected with ${_availableTrips.length - 1} trips available.',
+                        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                      ),
+                      const Text(
+                        'Select a trip from the dropdown and click Show to view data.',
+                        style: TextStyle(color: Colors.blue),
+                      ),
+                    ] else
+                      const Text(
+                        'Train has been auto-selected. Click Show to view data.',
+                        style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
                       ),
                   ],
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Train has been auto-selected. Click Show to view data.',
-                    style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-                  ),
-                ],
+                ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Force UI refresh to show the loaded trips
+                    setState(() {});
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _loadTrains();
-                  if (_selectedTrainId != null) {
-                    _loadTripsForTrain();
-                  }
-                },
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -312,11 +382,26 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
         final tripId = parts[0].trim();
         final ehkName = parts.length > 3 ? parts[3].trim() : '';
         
+        print('_loadPSIData: Selected trip: $_selectedTrip');
+        print('_loadPSIData: Extracted tripId: "$tripId"');
+        print('_loadPSIData: Extracted ehkName: "$ehkName"');
+        print('_loadPSIData: Date range: $_fromDate to $_toDate');
+        
         // Load PSI records for selected trip
         final allRecords = await _psiService.getPSIRecordsByDateRange(
           _fromDate,
           _toDate,
         );
+        
+        print('_loadPSIData: Total records in date range: ${allRecords.length}');
+        
+        // Debug: Show all trip IDs and EHK names in the records
+        if (allRecords.isNotEmpty) {
+          print('_loadPSIData: Sample records:');
+          for (var i = 0; i < allRecords.length && i < 5; i++) {
+            print('  Record $i: tripId="${allRecords[i].tripId}", ehkName="${allRecords[i].ehkName}", trainNo="${allRecords[i].trainNo}"');
+          }
+        }
         
         // Filter by trip ID and EHK Name only (NOT by train number)
         // This allows showing all trains in the same trip
@@ -324,6 +409,8 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
           r.tripId == tripId &&
           (ehkName.isEmpty || r.ehkName == ehkName)
         ).toList();
+        
+        print('_loadPSIData: Filtered records: ${records.length}');
         
         // Sort by train number and then by date
         records.sort((a, b) {

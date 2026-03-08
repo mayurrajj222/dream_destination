@@ -109,11 +109,16 @@ class ExcelImportService {
         if (row.isEmpty) continue;
         
         final firstCell = row[0]?.value?.toString().toLowerCase() ?? '';
-        if (firstCell.contains('date') && row.length > 1) {
-          final secondCell = row[1]?.value?.toString().toLowerCase() ?? '';
-          if (secondCell.contains('passenger')) {
-            headerRowIndex = i;
-            break;
+        // Look for "date" in first cell
+        if (firstCell.contains('date')) {
+          // Check if second cell contains "passenger" or "name"
+          if (row.length > 1) {
+            final secondCell = row[1]?.value?.toString().toLowerCase() ?? '';
+            if (secondCell.contains('passenger') || secondCell.contains('name')) {
+              headerRowIndex = i;
+              print('ExcelImport: Header row found at index: $headerRowIndex');
+              break;
+            }
           }
         }
       }
@@ -136,6 +141,8 @@ class ExcelImportService {
       // Process data rows (skip header row)
       String currentTrainNo = metadata['trainNo'] ?? '';
       
+      print('ExcelImport: Starting data import with train no: "$currentTrainNo"');
+      
       for (int i = headerRowIndex + 1; i < table.rows.length; i++) {
         try {
           final row = table.rows[i];
@@ -148,16 +155,19 @@ class ExcelImportService {
           final firstCell = row[0]?.value?.toString() ?? '';
           
           // Check if this is a new train section (e.g., "Train No: 05219")
-          if (firstCell.contains('Train No:')) {
-            currentTrainNo = firstCell.replaceAll('Train No:', '').trim();
-            continue;
+          if (firstCell.toLowerCase().contains('train') && firstCell.toLowerCase().contains('no')) {
+            final trainNoMatch = RegExp(r'(\d{5})').firstMatch(firstCell);
+            if (trainNoMatch != null) {
+              currentTrainNo = trainNoMatch.group(1)!;
+              print('ExcelImport: Found new train section: $currentTrainNo');
+              continue;
+            }
           }
           
           // Skip if first cell is empty or doesn't look like a date
           if (firstCell.isEmpty) continue;
 
           // Parse row data
-          // Expected format: Date | Passenger-Name | PNR-No | ...
           final dateStr = row[0]?.value?.toString() ?? '';
           final passengerName = row.length > 1 ? (row[1]?.value?.toString() ?? '') : '';
           final pnrNo = row.length > 2 ? (row[2]?.value?.toString() ?? '') : '';
@@ -170,18 +180,26 @@ class ExcelImportService {
           // Parse date
           final date = _parseDate(dateStr);
           
-          // Get other fields (adjust indices based on your Excel structure)
+          // Get other fields
           final mobileNo = row.length > 3 ? (row[3]?.value?.toString() ?? '') : '';
           final coach = row.length > 4 ? (row[4]?.value?.toString() ?? '') : '';
           final seatNo = row.length > 5 ? (row[5]?.value?.toString() ?? '') : '';
           final psiScore = row.length > 6 ? _parseDouble(row[6]?.value?.toString() ?? '100') : 100.0;
 
+          // Use current train number (from metadata or train section header)
+          final trainNo = currentTrainNo.isNotEmpty ? currentTrainNo : (metadata['trainNo'] ?? '');
+          
+          if (trainNo.isEmpty) {
+            print('ExcelImport: Warning - No train number for row $i, skipping');
+            continue;
+          }
+
           // Create PSI record
           final record = PSIRecord(
-            userId: '', // Will be set by PSIService when saving
+            userId: '', // Will be set by PSIService
             trainId: '', // Will be set after finding/creating train
-            trainNo: currentTrainNo.isNotEmpty ? currentTrainNo : (metadata['trainNo'] ?? ''),
-            trainName: metadata['trainName'] ?? 'Unknown Train',
+            trainNo: trainNo,
+            trainName: metadata['trainName'] ?? 'Train $trainNo',
             scheduleId: '',
             tripId: metadata['tripId'] ?? 'Unknown',
             date: date,
@@ -193,7 +211,7 @@ class ExcelImportService {
             psiScore: psiScore,
             tripType: 'Going',
             ehkName: metadata['ehkName'] ?? 'Unknown',
-            companyName: metadata['companyName'], // Extract company name from Excel
+            companyName: metadata['companyName'],
             createdAt: DateTime.now(),
           );
 
@@ -298,7 +316,9 @@ class ExcelImportService {
       // Remove any extra whitespace
       dateStr = dateStr.trim();
       
-      // Try DD-MM-YYYY format (22-06-2025)
+      print('Parsing date: "$dateStr"');
+      
+      // Try DD-MM-YYYY format (09-06-2025)
       if (dateStr.contains('-')) {
         final parts = dateStr.split('-');
         if (parts.length == 3) {
@@ -307,7 +327,12 @@ class ExcelImportService {
           final year = int.tryParse(parts[2]);
           
           if (day != null && month != null && year != null) {
-            return DateTime(year, month, day);
+            // Validate the values
+            if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000) {
+              final parsedDate = DateTime(year, month, day);
+              print('Parsed date (DD-MM-YYYY): $parsedDate');
+              return parsedDate;
+            }
           }
         }
       }
@@ -321,14 +346,22 @@ class ExcelImportService {
           final year = int.tryParse(parts[2]);
           
           if (day != null && month != null && year != null) {
-            return DateTime(year, month, day);
+            // Validate the values
+            if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000) {
+              final parsedDate = DateTime(year, month, day);
+              print('Parsed date (DD/MM/YYYY): $parsedDate');
+              return parsedDate;
+            }
           }
         }
       }
       
-      // Try parsing as DateTime
-      return DateTime.parse(dateStr);
+      // Try parsing as DateTime (ISO format)
+      final parsedDate = DateTime.parse(dateStr);
+      print('Parsed date (ISO): $parsedDate');
+      return parsedDate;
     } catch (e) {
+      print('Error parsing date "$dateStr": $e, using current date');
       return DateTime.now();
     }
   }
@@ -352,129 +385,123 @@ class ExcelImportService {
       if (row.isEmpty) continue;
 
       final cellValue = row[0]?.value?.toString() ?? '';
+      final cellValueLower = cellValue.toLowerCase();
 
       // Extract Company Name from "Trainwise PSI Report" column header
-      // Format: "Trainwise PSI Report\nR. N. INDUSTRIES" or similar
-      if (cellValue.contains('Trainwise PSI Report')) {
+      if (cellValueLower.contains('trainwise') && cellValueLower.contains('psi')) {
         // Look for company name in the same cell or next row
         final lines = cellValue.split('\n');
         if (lines.length > 1) {
-          // Company name is on the next line after "Trainwise PSI Report"
           for (int j = 1; j < lines.length; j++) {
             final line = lines[j].trim();
             if (line.isNotEmpty && 
-                !line.contains('EHK Name') && 
-                !line.contains('Trip ID') &&
-                !line.contains('Train No') &&
-                !line.contains('Trip Period')) {
+                !line.toLowerCase().contains('ehk') && 
+                !line.toLowerCase().contains('trip') &&
+                !line.toLowerCase().contains('train') &&
+                !line.toLowerCase().contains('period')) {
               metadata['companyName'] = line;
               break;
             }
           }
         }
         
-        // Also check the next row if company name not found in same cell
+        // Also check the next row
         if (!metadata.containsKey('companyName') && i + 1 < table.rows.length) {
           final nextRow = table.rows[i + 1];
           if (nextRow.isNotEmpty) {
             final nextCellValue = nextRow[0]?.value?.toString().trim() ?? '';
             if (nextCellValue.isNotEmpty && 
                 !nextCellValue.contains(':') &&
-                !nextCellValue.contains('EHK Name') &&
-                !nextCellValue.contains('Trip ID') &&
-                !nextCellValue.contains('Train No')) {
+                !nextCellValue.toLowerCase().contains('ehk') &&
+                !nextCellValue.toLowerCase().contains('trip') &&
+                !nextCellValue.toLowerCase().contains('train')) {
               metadata['companyName'] = nextCellValue;
             }
           }
         }
       }
 
-      // Extract Train No from "Train No: XXXXX" or "Train No: XXXXX - Train Name" format
-      if (cellValue.contains('Train No:')) {
-        // Extract just the train number (5 digits)
-        final match = RegExp(r'Train No:\s*(\d{5})').firstMatch(cellValue);
-        if (match != null) {
-          metadata['trainNo'] = match.group(1)!;
+      // Extract Train No - flexible matching
+      if (cellValueLower.contains('train') && cellValueLower.contains('no')) {
+        // Try multiple patterns
+        final patterns = [
+          RegExp(r'train\s*no:?\s*(\d{5})', caseSensitive: false),
+          RegExp(r'train\s*no\.?\s*(\d{5})', caseSensitive: false),
+          RegExp(r'train\s*number:?\s*(\d{5})', caseSensitive: false),
+        ];
+        
+        for (var pattern in patterns) {
+          final match = pattern.firstMatch(cellValue);
+          if (match != null) {
+            metadata['trainNo'] = match.group(1)!;
+            break;
+          }
         }
         
-        // Try to extract train name if it follows the pattern "Train No: XXXXX - Name"
-        final nameMatch = RegExp(r'Train No:\s*\d{5}\s*-\s*([^\n]+)').firstMatch(cellValue);
-        if (nameMatch != null) {
-          metadata['trainName'] = nameMatch.group(1)!.trim();
-        }
-      }
-
-      // Extract EHK Name - get only the name, not everything after it
-      if (cellValue.contains('EHK Name:')) {
-        // Extract text after "EHK Name:" until newline or next section
-        final match = RegExp(r'EHK Name:\s*([^\n]+)').firstMatch(cellValue);
-        if (match != null) {
-          var ehkName = match.group(1)!.trim();
-          // Remove any trailing text that looks like it's from another section
-          ehkName = ehkName.split(RegExp(r'(Trip Period|Trip ID|Train No|OBHS|Trainwise)')).first.trim();
-          metadata['ehkName'] = ehkName;
-        }
-      }
-
-      // Extract Trip ID - get only the ID, not everything after it
-      if (cellValue.contains('Trip ID:')) {
-        // Extract text after "Trip ID:" until newline or next section
-        final match = RegExp(r'Trip ID:\s*([^\n]+)').firstMatch(cellValue);
-        if (match != null) {
-          var tripId = match.group(1)!.trim();
-          // Remove any trailing text that looks like it's from another section
-          tripId = tripId.split(RegExp(r'(Trip Period|EHK Name|Train No|OBHS|Trainwise)')).first.trim();
-          // If trip ID contains non-numeric/non-alphanumeric at the start, extract just the ID part
-          final idMatch = RegExp(r'^([A-Za-z0-9\-]+)').firstMatch(tripId);
-          if (idMatch != null) {
-            metadata['tripId'] = idMatch.group(1)!;
-          } else {
-            metadata['tripId'] = tripId;
+        // Try to extract train name
+        final namePatterns = [
+          RegExp(r'train\s*no:?\s*\d{5}\s*-\s*([^\n]+)', caseSensitive: false),
+          RegExp(r'train\s*no\.?\s*\d{5}\s*-\s*([^\n]+)', caseSensitive: false),
+        ];
+        
+        for (var pattern in namePatterns) {
+          final match = pattern.firstMatch(cellValue);
+          if (match != null) {
+            metadata['trainName'] = match.group(1)!.trim();
+            break;
           }
         }
       }
 
-      // Extract Trip Period for date range
-      if (cellValue.contains('Trip Period:')) {
-        final match = RegExp(r'Trip Period:\s*([^\n]+)').firstMatch(cellValue);
+      // Extract EHK Name - flexible matching
+      if (cellValueLower.contains('ehk') && cellValueLower.contains('name')) {
+        final patterns = [
+          RegExp(r'ehk\s*name:?\s*([^\n\r]+)', caseSensitive: false),
+          RegExp(r'ehk\s*name\.?\s*([^\n\r]+)', caseSensitive: false),
+        ];
+        
+        for (var pattern in patterns) {
+          final match = pattern.firstMatch(cellValue);
+          if (match != null) {
+            var ehkName = match.group(1)!.trim();
+            // Remove any trailing text that looks like it's from another section
+            ehkName = ehkName.split(RegExp(r'(trip\s*period|trip\s*id|train\s*no|obhs|trainwise)', caseSensitive: false)).first.trim();
+            metadata['ehkName'] = ehkName;
+            break;
+          }
+        }
+      }
+
+      // Extract Trip ID - flexible matching
+      if (cellValueLower.contains('trip') && cellValueLower.contains('id')) {
+        final patterns = [
+          RegExp(r'trip\s*id:?\s*([A-Za-z0-9\-]+)', caseSensitive: false),
+          RegExp(r'trip\s*id\.?\s*([A-Za-z0-9\-]+)', caseSensitive: false),
+        ];
+        
+        for (var pattern in patterns) {
+          final match = pattern.firstMatch(cellValue);
+          if (match != null) {
+            var tripId = match.group(1)!.trim();
+            // Remove any trailing text
+            tripId = tripId.split(RegExp(r'(trip\s*period|ehk\s*name|train\s*no|obhs|trainwise)', caseSensitive: false)).first.trim();
+            // Extract just the ID part
+            final idMatch = RegExp(r'^([A-Za-z0-9\-]+)').firstMatch(tripId);
+            if (idMatch != null) {
+              metadata['tripId'] = idMatch.group(1)!;
+            } else {
+              metadata['tripId'] = tripId;
+            }
+            break;
+          }
+        }
+      }
+
+      // Extract Trip Period
+      if (cellValueLower.contains('trip') && cellValueLower.contains('period')) {
+        final match = RegExp(r'trip\s*period:?\s*([^\n]+)', caseSensitive: false).firstMatch(cellValue);
         if (match != null) {
           metadata['tripPeriod'] = match.group(1)!.trim();
-        }
-      }
-
-      // Look for train name in specific patterns
-      // Pattern 1: Row contains company/enterprise name (usually in caps)
-      // Look for a line that's likely the company name (between other metadata)
-      if (!metadata.containsKey('trainName') && i > 0 && i < 15) {
-        final trimmedValue = cellValue.trim();
-        
-        // Check if this looks like a company/enterprise name
-        if (trimmedValue.length > 5 && 
-            trimmedValue.length < 50 &&
-            !trimmedValue.contains(':') && // Not a label
-            !trimmedValue.contains('Train No') &&
-            !trimmedValue.contains('EHK Name') &&
-            !trimmedValue.contains('Trip ID') &&
-            !trimmedValue.contains('Trip Period') &&
-            !trimmedValue.contains('Trainwise PSI Report') &&
-            !trimmedValue.contains('Passenger Feedback') &&
-            !trimmedValue.contains('OBHS Activity') &&
-            !trimmedValue.contains('Linen Distribution') &&
-            !trimmedValue.contains('primary based') &&
-            !trimmedValue.contains('Division') &&
-            !trimmedValue.contains('Coaches') &&
-            !trimmedValue.toLowerCase().contains('date') &&
-            !trimmedValue.toLowerCase().contains('passenger') &&
-            !trimmedValue.toLowerCase().contains('pnr')) {
-          
-          // Check if it's mostly uppercase (company names are usually in caps)
-          final uppercaseCount = trimmedValue.split('').where((c) => c == c.toUpperCase() && c != c.toLowerCase()).length;
-          final letterCount = trimmedValue.split('').where((c) => RegExp(r'[a-zA-Z]').hasMatch(c)).length;
-          
-          if (letterCount > 0 && uppercaseCount / letterCount > 0.7) {
-            // This is likely the company/train name
-            metadata['trainName'] = trimmedValue;
-          }
         }
       }
     }
@@ -484,35 +511,7 @@ class ExcelImportService {
       metadata['trainName'] = 'Train ${metadata['trainNo']}';
     }
 
-    // If no metadata found, try to extract from first data row
-    if (metadata.isEmpty || !metadata.containsKey('trainNo')) {
-      // Look for train number in the data section
-      for (int i = 0; i < table.rows.length; i++) {
-        final row = table.rows[i];
-        if (row.isEmpty) continue;
-        
-        // Check if this looks like a header row
-        final firstCell = row[0]?.value?.toString() ?? '';
-        if (firstCell.toLowerCase().contains('date') || 
-            firstCell.toLowerCase().contains('passenger')) {
-          continue;
-        }
-        
-        // Try to find train number in the sheet
-        for (var cell in row) {
-          final value = cell?.value?.toString() ?? '';
-          // Look for 5-digit train numbers
-          if (RegExp(r'^\d{5}$').hasMatch(value)) {
-            metadata['trainNo'] = value;
-            metadata['trainName'] = 'Train $value';
-            break;
-          }
-        }
-        
-        if (metadata.containsKey('trainNo')) break;
-      }
-    }
-
+    print('ExcelImport: Extracted metadata: $metadata');
     return metadata;
   }
 
