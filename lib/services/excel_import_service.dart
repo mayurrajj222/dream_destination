@@ -337,20 +337,44 @@ class ExcelImportService {
         }
       }
       
-      // Try DD/MM/YYYY format
+      // Try DD/MM/YYYY or MM/DD/YYYY format
       if (dateStr.contains('/')) {
         final parts = dateStr.split('/');
         if (parts.length == 3) {
-          final day = int.tryParse(parts[0]);
-          final month = int.tryParse(parts[1]);
+          final part1 = int.tryParse(parts[0]);
+          final part2 = int.tryParse(parts[1]);
           final year = int.tryParse(parts[2]);
           
-          if (day != null && month != null && year != null) {
-            // Validate the values
-            if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000) {
-              final parsedDate = DateTime(year, month, day);
-              print('Parsed date (DD/MM/YYYY): $parsedDate');
-              return parsedDate;
+          if (part1 != null && part2 != null && year != null && year >= 2000) {
+            // Try DD/MM/YYYY first (day > 12 means it must be DD/MM/YYYY)
+            if (part1 > 12) {
+              final day = part1;
+              final month = part2;
+              if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                final parsedDate = DateTime(year, month, day);
+                print('Parsed date (DD/MM/YYYY): $parsedDate');
+                return parsedDate;
+              }
+            }
+            // Try MM/DD/YYYY (month > 12 means it must be MM/DD/YYYY)
+            else if (part2 > 12) {
+              final month = part1;
+              final day = part2;
+              if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                final parsedDate = DateTime(year, month, day);
+                print('Parsed date (MM/DD/YYYY): $parsedDate');
+                return parsedDate;
+              }
+            }
+            // Ambiguous case (both <= 12), try DD/MM/YYYY first
+            else {
+              final day = part1;
+              final month = part2;
+              if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                final parsedDate = DateTime(year, month, day);
+                print('Parsed date (DD/MM/YYYY - ambiguous): $parsedDate');
+                return parsedDate;
+              }
             }
           }
         }

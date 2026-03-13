@@ -159,6 +159,15 @@ class HomeScreen extends StatelessWidget {
 
                 _buildManagementButton(
                   context,
+                  icon: Icons.add_circle,
+                  label: 'Add PSI Record',
+                  color: Colors.pink.shade700,
+                  onTap: () => Navigator.pushNamed(context, '/psi-form'),
+                ),
+                const SizedBox(height: 16),
+
+                _buildManagementButton(
+                  context,
                   icon: Icons.credit_card,
                   label: 'Trip Card',
                   color: Colors.indigo.shade700,
