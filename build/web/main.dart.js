@@ -58740,7 +58740,7 @@ j=k.jS("user_id",j)
 j=A.pr(j.rt(j.vu("date","gte."+a.im())),j.$ti.c)
 j=A.pr(j.rt(j.vu("date","lte."+b.im())),j.$ti.c).RO(0,"date",!1)
 s=7
-return A.u(A.J7(j.Pp(j.vu("limit","5000")),j.$ti.c),$async$u6)
+return A.u(A.J7(j.Pp(j.vu("limit","15000")),j.$ti.c),$async$u6)
 case 7:m=d
 k=J.fK(m,new A.asv(),t.hu)
 k=A.Q(k,k.$ti.i("aq.E"))

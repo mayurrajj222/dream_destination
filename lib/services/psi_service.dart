@@ -55,7 +55,7 @@ class PSIService {
           .gte('date', fromDate.toIso8601String())
           .lte('date', toDate.toIso8601String())
           .order('date', ascending: false)  // Changed to descending to get newest first
-          .limit(5000);  // Increased limit to 5000 records
+          .limit(15000);  // Increased limit to 15000 records
 
       return (response as List)
           .map((data) => PSIRecord.fromMap(data, data['id']))
