@@ -115,6 +115,16 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
         }
       }
       
+      // Debug: Check for Trip 1956 in ALL records
+      final allTrip1956 = records.where((r) => r.tripId == '1956').toList();
+      print('_loadTripsForTrain: Trip 1956 in ALL records: ${allTrip1956.length}');
+      if (allTrip1956.isNotEmpty) {
+        print('_loadTripsForTrain: Trip 1956 ALL sample:');
+        for (var i = 0; i < allTrip1956.length && i < 5; i++) {
+          print('  Trip 1956 ALL Record $i: trainNo="${allTrip1956[i].trainNo}", ehkName="${allTrip1956[i].ehkName}", date=${allTrip1956[i].date}');
+        }
+      }
+      
       // NEW LOGIC: Find all trips that include the selected train
       // First, get all records for this train
       final trainRecords = records.where((r) => 
