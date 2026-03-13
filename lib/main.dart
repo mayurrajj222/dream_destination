@@ -10,6 +10,7 @@ import 'screens/tripwise_attendance_report_screen.dart';
 import 'screens/psi_reports_dashboard_screen.dart';
 import 'screens/trip_card_screen.dart';
 import 'screens/ehk_staff_screen.dart';
+import 'screens/psi_form_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +45,7 @@ class MyApp extends StatelessWidget {
         '/psi': (context) => PSIReportsDashboardScreen(),
         '/tripcard': (context) => TripCardScreen(),
         '/ehkstaff': (context) => EHKStaffScreen(),
+        '/psi-form': (context) => const PSIFormScreen(),
       },
     );
   }

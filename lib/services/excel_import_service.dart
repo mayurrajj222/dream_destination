@@ -94,6 +94,10 @@ class ExcelImportService {
 
       print('Excel loaded: ${table.rows.length} rows found');
 
+      // Generate unique import batch ID for this import session
+      final importBatchId = 'batch_${DateTime.now().millisecondsSinceEpoch}';
+      print('ExcelImport: Generated import batch ID: $importBatchId');
+
       List<PSIRecord> records = [];
       int successCount = 0;
       int errorCount = 0;
@@ -103,37 +107,63 @@ class ExcelImportService {
       final metadata = _extractMetadata(table);
       
       // Find the header row (contains "Date", "Passenger-Name", etc.)
+      // Be very flexible - look for any row that looks like a header
       int headerRowIndex = -1;
-      for (int i = 0; i < table.rows.length; i++) {
+      for (int i = 0; i < table.rows.length && i < 30; i++) {
         final row = table.rows[i];
         if (row.isEmpty) continue;
         
-        final firstCell = row[0]?.value?.toString().toLowerCase() ?? '';
-        // Look for "date" in first cell
-        if (firstCell.contains('date')) {
-          // Check if second cell contains "passenger" or "name"
-          if (row.length > 1) {
-            final secondCell = row[1]?.value?.toString().toLowerCase() ?? '';
-            if (secondCell.contains('passenger') || secondCell.contains('name')) {
-              headerRowIndex = i;
-              print('ExcelImport: Header row found at index: $headerRowIndex');
+        // Check multiple cells for header indicators
+        bool hasDateHeader = false;
+        bool hasPassengerHeader = false;
+        
+        for (int j = 0; j < row.length && j < 10; j++) {
+          final cellValue = row[j]?.value?.toString().toLowerCase() ?? '';
+          if (cellValue.contains('date')) hasDateHeader = true;
+          if (cellValue.contains('passenger') || cellValue.contains('name')) hasPassengerHeader = true;
+        }
+        
+        if (hasDateHeader && hasPassengerHeader) {
+          headerRowIndex = i;
+          print('ExcelImport: Header row found at index: $headerRowIndex');
+          break;
+        }
+      }
+      
+      if (headerRowIndex == -1) {
+        // If no header found, assume data starts at row 0 or after metadata
+        // Try to find first row with date-like data
+        print('WARNING: No header row found, attempting to find data start');
+        for (int i = 0; i < table.rows.length && i < 30; i++) {
+          final row = table.rows[i];
+          if (row.isEmpty) continue;
+          
+          final firstCell = row[0]?.value?.toString() ?? '';
+          // Check if first cell looks like a date
+          if (firstCell.contains('/') || firstCell.contains('-')) {
+            // Try to parse as date
+            try {
+              _parseDate(firstCell);
+              headerRowIndex = i - 1; // Assume previous row was header
+              print('ExcelImport: Data appears to start at row $i, using ${i-1} as header');
               break;
+            } catch (e) {
+              // Not a date, continue
             }
           }
         }
       }
       
       if (headerRowIndex == -1) {
-        print('ERROR: Could not find header row');
-        print('First 10 rows:');
-        for (int i = 0; i < table.rows.length && i < 10; i++) {
+        print('ERROR: Could not find header or data start row');
+        print('First 15 rows:');
+        for (int i = 0; i < table.rows.length && i < 15; i++) {
           final row = table.rows[i];
           print('Row $i: ${row.map((c) => c?.value?.toString() ?? "null").join(" | ")}');
         }
-        return {
-          'success': false,
-          'message': 'Could not find data header row in Excel file',
-        };
+        // Don't fail - try to import starting from row 5 (common metadata size)
+        headerRowIndex = 4;
+        print('ExcelImport: Defaulting to row 5 as data start');
       }
 
       print('Header row found at index: $headerRowIndex');
@@ -147,12 +177,12 @@ class ExcelImportService {
         try {
           final row = table.rows[i];
           
-          // Skip empty rows
-          if (row.isEmpty || row.every((cell) => cell?.value == null)) {
+          // Skip completely empty rows
+          if (row.isEmpty || row.every((cell) => cell?.value == null || cell?.value.toString().trim().isEmpty == true)) {
             continue;
           }
 
-          final firstCell = row[0]?.value?.toString() ?? '';
+          final firstCell = row[0]?.value?.toString().trim() ?? '';
           
           // Check if this is a new train section (e.g., "Train No: 05219")
           if (firstCell.toLowerCase().contains('train') && firstCell.toLowerCase().contains('no')) {
@@ -164,37 +194,61 @@ class ExcelImportService {
             }
           }
           
-          // Skip if first cell is empty or doesn't look like a date
-          if (firstCell.isEmpty) continue;
-
-          // Parse row data
-          final dateStr = row[0]?.value?.toString() ?? '';
-          final passengerName = row.length > 1 ? (row[1]?.value?.toString() ?? '') : '';
-          final pnrNo = row.length > 2 ? (row[2]?.value?.toString() ?? '') : '';
+          // Parse row data - be very flexible
+          final dateStr = row.length > 0 ? (row[0]?.value?.toString().trim() ?? '') : '';
+          final passengerName = row.length > 1 ? (row[1]?.value?.toString().trim() ?? '') : '';
+          final pnrNo = row.length > 2 ? (row[2]?.value?.toString().trim() ?? '') : '';
+          final mobileNo = row.length > 3 ? (row[3]?.value?.toString().trim() ?? '') : '';
+          final coach = row.length > 4 ? (row[4]?.value?.toString().trim() ?? '') : '';
+          final seatNo = row.length > 5 ? (row[5]?.value?.toString().trim() ?? '') : '';
+          final psiScore = row.length > 6 ? _parseDouble(row[6]?.value?.toString() ?? '100') : 100.0;
           
-          // Skip if essential fields are missing
-          if (dateStr.isEmpty || passengerName.isEmpty) {
+          // CRITICAL: Don't skip rows with missing data - import them anyway!
+          // Only skip if BOTH date AND passenger name are empty
+          if (dateStr.isEmpty && passengerName.isEmpty) {
             continue;
           }
-
-          // Parse date
-          final date = _parseDate(dateStr);
           
-          // Get other fields
-          final mobileNo = row.length > 3 ? (row[3]?.value?.toString() ?? '') : '';
-          final coach = row.length > 4 ? (row[4]?.value?.toString() ?? '') : '';
-          final seatNo = row.length > 5 ? (row[5]?.value?.toString() ?? '') : '';
-          final psiScore = row.length > 6 ? _parseDouble(row[6]?.value?.toString() ?? '100') : 100.0;
+          // If date is empty but passenger name exists, use current date
+          DateTime date;
+          if (dateStr.isEmpty) {
+            print('ExcelImport: Row $i has no date, using current date');
+            date = DateTime.now();
+          } else {
+            try {
+              date = _parseDate(dateStr);
+            } catch (e) {
+              print('ExcelImport: Row $i date parse failed, using current date. Error: $e');
+              date = DateTime.now();
+            }
+          }
+          
+          // If passenger name is empty, use placeholder
+          final finalPassengerName = passengerName.isEmpty ? 'Passenger-${i}' : passengerName;
 
           // Use current train number (from metadata or train section header)
-          final trainNo = currentTrainNo.isNotEmpty ? currentTrainNo : (metadata['trainNo'] ?? '');
+          String trainNo = currentTrainNo.isNotEmpty ? currentTrainNo : (metadata['trainNo'] ?? '');
           
+          // If still no train number, try to extract from any cell in the row
           if (trainNo.isEmpty) {
-            print('ExcelImport: Warning - No train number for row $i, skipping');
-            continue;
+            for (var cell in row) {
+              final cellValue = cell?.value?.toString() ?? '';
+              final trainMatch = RegExp(r'(\d{5})').firstMatch(cellValue);
+              if (trainMatch != null) {
+                trainNo = trainMatch.group(1)!;
+                print('ExcelImport: Found train number in row $i: $trainNo');
+                break;
+              }
+            }
+          }
+          
+          // Last resort: use a default train number
+          if (trainNo.isEmpty) {
+            trainNo = '00000';
+            print('ExcelImport: Row $i has no train number, using default: $trainNo');
           }
 
-          // Create PSI record
+          // Create PSI record - ALWAYS create it, even with missing data
           final record = PSIRecord(
             userId: '', // Will be set by PSIService
             trainId: '', // Will be set after finding/creating train
@@ -203,7 +257,7 @@ class ExcelImportService {
             scheduleId: '',
             tripId: metadata['tripId'] ?? 'Unknown',
             date: date,
-            passengerName: passengerName,
+            passengerName: finalPassengerName,
             pnrNo: pnrNo,
             mobileNo: mobileNo,
             coach: coach,
@@ -212,32 +266,58 @@ class ExcelImportService {
             tripType: 'Going',
             ehkName: metadata['ehkName'] ?? 'Unknown',
             companyName: metadata['companyName'],
+            importBatchId: importBatchId, // Set the import batch ID
             createdAt: DateTime.now(),
           );
 
           records.add(record);
+          print('ExcelImport: Row $i imported - Passenger: $finalPassengerName, Train: $trainNo, Date: $date');
         } catch (e) {
+          // Don't fail the entire import - just log the error and continue
           errorCount++;
-          errors.add('Row ${i + 1}: ${e.toString()}');
+          final errorMsg = 'Row ${i + 1}: ${e.toString()}';
+          errors.add(errorMsg);
+          print('ExcelImport: ERROR on row $i: $e');
+          print('ExcelImport: Continuing with next row...');
         }
       }
 
       if (records.isEmpty) {
-        print('ERROR: No records created');
+        print('WARNING: No records created from Excel');
         print('Metadata: $metadata');
+        print('This might be due to unexpected Excel format');
+        // Don't fail completely - return partial success
         return {
           'success': false,
-          'message': 'No valid data rows found in Excel file',
+          'message': 'No valid data rows found in Excel file. Please check the Excel format.',
           'metadata': metadata,
+          'totalRecords': 0,
+          'successCount': 0,
+          'errorCount': errorCount,
+          'errors': errors,
         };
       }
 
-      print('Created ${records.length} PSI records');
+      print('Created ${records.length} PSI records from Excel');
       print('Metadata: $metadata');
 
       // Find or create train for the records
-      final trainNo = metadata['trainNo'] ?? records.first.trainNo;
-      final trainName = metadata['trainName'] ?? records.first.trainName;
+      // Try multiple sources for train number
+      String trainNo = metadata['trainNo'] ?? '';
+      if (trainNo.isEmpty && records.isNotEmpty) {
+        trainNo = records.first.trainNo;
+      }
+      if (trainNo == '00000') {
+        // Default train number was used, try to find a real one
+        for (var record in records) {
+          if (record.trainNo != '00000') {
+            trainNo = record.trainNo;
+            break;
+          }
+        }
+      }
+      
+      final trainName = metadata['trainName'] ?? 'Train $trainNo';
       
       String? trainId;
       if (trainNo.isNotEmpty) {
@@ -310,13 +390,28 @@ class ExcelImportService {
     }
   }
 
-  /// Parse date from various formats
+  /// Parse date from various formats - VERY FLEXIBLE
   DateTime _parseDate(String dateStr) {
     try {
       // Remove any extra whitespace
       dateStr = dateStr.trim();
       
       print('Parsing date: "$dateStr"');
+      
+      // Handle Excel numeric dates (days since 1900-01-01)
+      if (RegExp(r'^\d+$').hasMatch(dateStr)) {
+        try {
+          final days = int.parse(dateStr);
+          if (days > 40000 && days < 60000) { // Reasonable range for Excel dates (2009-2064)
+            final excelEpoch = DateTime(1899, 12, 30); // Excel's epoch
+            final parsedDate = excelEpoch.add(Duration(days: days));
+            print('Parsed date (Excel numeric): $parsedDate');
+            return parsedDate;
+          }
+        } catch (e) {
+          // Not an Excel date, continue with other formats
+        }
+      }
       
       // Try DD-MM-YYYY format (09-06-2025)
       if (dateStr.contains('-')) {
@@ -327,9 +422,15 @@ class ExcelImportService {
           final year = int.tryParse(parts[2]);
           
           if (day != null && month != null && year != null) {
+            // Handle 2-digit years
+            int fullYear = year;
+            if (year < 100) {
+              fullYear = year < 50 ? 2000 + year : 1900 + year;
+            }
+            
             // Validate the values
-            if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000) {
-              final parsedDate = DateTime(year, month, day);
+            if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && fullYear >= 1900) {
+              final parsedDate = DateTime(fullYear, month, day);
               print('Parsed date (DD-MM-YYYY): $parsedDate');
               return parsedDate;
             }
@@ -343,47 +444,62 @@ class ExcelImportService {
         if (parts.length == 3) {
           final part1 = int.tryParse(parts[0]);
           final part2 = int.tryParse(parts[1]);
-          final year = int.tryParse(parts[2]);
+          var year = int.tryParse(parts[2]);
           
-          if (part1 != null && part2 != null && year != null && year >= 2000) {
-            // Try DD/MM/YYYY first (day > 12 means it must be DD/MM/YYYY)
-            if (part1 > 12) {
-              final day = part1;
-              final month = part2;
-              if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-                final parsedDate = DateTime(year, month, day);
-                print('Parsed date (DD/MM/YYYY): $parsedDate');
-                return parsedDate;
-              }
+          if (part1 != null && part2 != null && year != null) {
+            // Handle 2-digit years
+            if (year < 100) {
+              year = year < 50 ? 2000 + year : 1900 + year;
             }
-            // Try MM/DD/YYYY (month > 12 means it must be MM/DD/YYYY)
-            else if (part2 > 12) {
-              final month = part1;
-              final day = part2;
-              if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-                final parsedDate = DateTime(year, month, day);
-                print('Parsed date (MM/DD/YYYY): $parsedDate');
-                return parsedDate;
+            
+            if (year >= 1900) {
+              // Try DD/MM/YYYY first (day > 12 means it must be DD/MM/YYYY)
+              if (part1 > 12) {
+                final day = part1;
+                final month = part2;
+                if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                  final parsedDate = DateTime(year, month, day);
+                  print('Parsed date (DD/MM/YYYY): $parsedDate');
+                  return parsedDate;
+                }
               }
-            }
-            // Ambiguous case (both <= 12), try DD/MM/YYYY first
-            else {
-              final day = part1;
-              final month = part2;
-              if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-                final parsedDate = DateTime(year, month, day);
-                print('Parsed date (DD/MM/YYYY - ambiguous): $parsedDate');
-                return parsedDate;
+              // Try MM/DD/YYYY (month > 12 means it must be MM/DD/YYYY)
+              else if (part2 > 12) {
+                final month = part1;
+                final day = part2;
+                if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                  final parsedDate = DateTime(year, month, day);
+                  print('Parsed date (MM/DD/YYYY): $parsedDate');
+                  return parsedDate;
+                }
+              }
+              // Ambiguous case (both <= 12), try DD/MM/YYYY first
+              else {
+                final day = part1;
+                final month = part2;
+                if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                  final parsedDate = DateTime(year, month, day);
+                  print('Parsed date (DD/MM/YYYY - ambiguous): $parsedDate');
+                  return parsedDate;
+                }
               }
             }
           }
         }
       }
       
-      // Try parsing as DateTime (ISO format)
-      final parsedDate = DateTime.parse(dateStr);
-      print('Parsed date (ISO): $parsedDate');
-      return parsedDate;
+      // Try parsing as DateTime (ISO format: YYYY-MM-DD)
+      try {
+        final parsedDate = DateTime.parse(dateStr);
+        print('Parsed date (ISO): $parsedDate');
+        return parsedDate;
+      } catch (e) {
+        // Continue to fallback
+      }
+      
+      // Last resort: return current date
+      print('Could not parse date "$dateStr", using current date');
+      return DateTime.now();
     } catch (e) {
       print('Error parsing date "$dateStr": $e, using current date');
       return DateTime.now();

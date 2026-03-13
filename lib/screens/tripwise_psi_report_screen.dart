@@ -148,29 +148,48 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
       if (allRecordsForTheseTrips.isNotEmpty) {
         print('_loadTripsForTrain: Sample records:');
         for (var i = 0; i < allRecordsForTheseTrips.length && i < 10; i++) {
-          print('  Record $i: tripId="${allRecordsForTheseTrips[i].tripId}", trainNo="${allRecordsForTheseTrips[i].trainNo}", ehkName="${allRecordsForTheseTrips[i].ehkName}", date=${allRecordsForTheseTrips[i].date}');
+          print('  Record $i: tripId="${allRecordsForTheseTrips[i].tripId}", trainNo="${allRecordsForTheseTrips[i].trainNo}", ehkName="${allRecordsForTheseTrips[i].ehkName}", date=${allRecordsForTheseTrips[i].date}, batchId=${allRecordsForTheseTrips[i].importBatchId}');
         }
       }
       
-      // Group by trip ID and EHK Name combination to handle multiple trips on same day
-      Map<String, PSIRecord> tripMap = {};
+      // Group by trip ID, EHK Name, and import batch ID combination to handle multiple trips on same day
+      Map<String, List<PSIRecord>> tripMap = {};
       for (var record in allRecordsForTheseTrips) {
-        // Use tripId + ehkName as unique key to differentiate trips
-        String uniqueKey = '${record.tripId}_${record.ehkName}';
-        if (!tripMap.containsKey(uniqueKey)) {
-          tripMap[uniqueKey] = record;
-          print('_loadTripsForTrain: Added trip key: "$uniqueKey" (tripId="${record.tripId}", trainNo="${record.trainNo}", ehkName="${record.ehkName}", date=${record.date})');
+        // Use tripId + ehkName + importBatchId as unique key to differentiate trips
+        // If importBatchId is null (old records), fall back to tripId + ehkName + date
+        String uniqueKey;
+        if (record.importBatchId != null && record.importBatchId!.isNotEmpty) {
+          uniqueKey = '${record.tripId}_${record.ehkName}_${record.importBatchId}';
+        } else {
+          // Fallback for old records without import_batch_id
+          final dateStr = DateFormat('yyyy-MM-dd').format(record.date);
+          uniqueKey = '${record.tripId}_${record.ehkName}_$dateStr';
         }
+        
+        if (!tripMap.containsKey(uniqueKey)) {
+          tripMap[uniqueKey] = [];
+        }
+        tripMap[uniqueKey]!.add(record);
       }
       
       print('_loadTripsForTrain: Unique trips found: ${tripMap.length}');
       print('_loadTripsForTrain: All trip keys: ${tripMap.keys.toList()}');
       
-      // Create trip display strings: "TripID | Date | TrainNo | EHK Name"
+      // Create trip display strings: "TripID | Date | TrainNos | EHK Name"
+      // Show all train numbers if multiple trains in the trip
       List<String> tripDisplays = tripMap.entries.map((entry) {
-        final record = entry.value;
-        final dateStr = DateFormat('yyyy-MM-dd').format(record.date);
-        return '${record.tripId} | $dateStr | ${record.trainNo} | ${record.ehkName}';
+        final records = entry.value;
+        final firstRecord = records.first;
+        final dateStr = DateFormat('yyyy-MM-dd').format(firstRecord.date);
+        
+        // Get unique train numbers in this trip
+        final trainNumbers = records.map((r) => r.trainNo).toSet().toList();
+        trainNumbers.sort();
+        final trainNosDisplay = trainNumbers.join('+');
+        
+        print('_loadTripsForTrain: Trip ${firstRecord.tripId} has ${records.length} records across ${trainNumbers.length} trains: $trainNumbers');
+        
+        return '${firstRecord.tripId} | $dateStr | $trainNosDisplay | ${firstRecord.ehkName}';
       }).toList();
       
       tripDisplays.sort();
@@ -387,7 +406,7 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
         }
         return;
       } else {
-        // Extract trip ID and EHK Name from display string "TripID | Date | TrainNo | EHK Name"
+        // Extract trip ID, EHK Name, and import batch ID from display string "TripID | Date | TrainNo | EHK Name"
         final parts = _selectedTrip.split('|');
         final tripId = parts[0].trim();
         final ehkName = parts.length > 3 ? parts[3].trim() : '';
@@ -409,18 +428,88 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
         if (allRecords.isNotEmpty) {
           print('_loadPSIData: Sample records:');
           for (var i = 0; i < allRecords.length && i < 5; i++) {
-            print('  Record $i: tripId="${allRecords[i].tripId}", ehkName="${allRecords[i].ehkName}", trainNo="${allRecords[i].trainNo}"');
+            print('  Record $i: tripId="${allRecords[i].tripId}", ehkName="${allRecords[i].ehkName}", trainNo="${allRecords[i].trainNo}", batchId=${allRecords[i].importBatchId}');
           }
         }
         
-        // Filter by trip ID and EHK Name only (NOT by train number)
-        // This allows showing all trains in the same trip
-        records = allRecords.where((r) => 
-          r.tripId == tripId &&
-          (ehkName.isEmpty || r.ehkName == ehkName)
+        // First, try to find records with matching trip ID and EHK name
+        final matchingRecords = allRecords.where((r) => 
+          r.tripId == tripId && r.ehkName == ehkName
         ).toList();
         
-        print('_loadPSIData: Filtered records: ${records.length}');
+        print('_loadPSIData: Records matching trip ID and EHK: ${matchingRecords.length}');
+        
+        // Check if we have import_batch_id available (new imports)
+        final recordsWithBatchId = matchingRecords.where((r) => 
+          r.importBatchId != null && r.importBatchId!.isNotEmpty
+        ).toList();
+        
+        if (recordsWithBatchId.isNotEmpty) {
+          // Use import_batch_id for precise filtering (best method)
+          // Get the batch ID from the first matching record
+          final batchId = recordsWithBatchId.first.importBatchId!;
+          records = allRecords.where((r) => 
+            r.tripId == tripId &&
+            r.ehkName == ehkName &&
+            r.importBatchId == batchId
+          ).toList();
+          
+          // Get unique train numbers in filtered records
+          final trainNumbers = records.map((r) => r.trainNo).toSet().toList();
+          trainNumbers.sort();
+          
+          print('_loadPSIData: Using import_batch_id filter: $batchId');
+          print('_loadPSIData: Found ${records.length} records across ${trainNumbers.length} trains: $trainNumbers');
+        } else {
+          // Fallback for old records without import_batch_id
+          // Use tight date filtering (within 2 days)
+          final selectedDate = parts.length > 1 ? parts[1].trim() : '';
+          DateTime? tripDate;
+          if (selectedDate.isNotEmpty) {
+            try {
+              final dateParts = selectedDate.split('-');
+              if (dateParts.length == 3) {
+                tripDate = DateTime(
+                  int.parse(dateParts[0]),
+                  int.parse(dateParts[1]),
+                  int.parse(dateParts[2]),
+                );
+              }
+            } catch (e) {
+              print('Error parsing trip date: $e');
+            }
+          }
+          
+          if (tripDate != null) {
+            final startDate = tripDate.subtract(const Duration(days: 2));
+            final endDate = tripDate.add(const Duration(days: 2));
+            records = allRecords.where((r) => 
+              r.tripId == tripId &&
+              r.ehkName == ehkName &&
+              r.date.isAfter(startDate) &&
+              r.date.isBefore(endDate)
+            ).toList();
+            
+            // Get unique train numbers in filtered records
+            final trainNumbers = records.map((r) => r.trainNo).toSet().toList();
+            trainNumbers.sort();
+            
+            print('_loadPSIData: Using date-based filter (±2 days)');
+            print('_loadPSIData: Found ${records.length} records across ${trainNumbers.length} trains: $trainNumbers');
+          } else {
+            // Last resort: just use trip ID and EHK name
+            records = matchingRecords;
+            
+            // Get unique train numbers in filtered records
+            final trainNumbers = records.map((r) => r.trainNo).toSet().toList();
+            trainNumbers.sort();
+            
+            print('_loadPSIData: Using trip ID + EHK filter only');
+            print('_loadPSIData: Found ${records.length} records across ${trainNumbers.length} trains: $trainNumbers');
+          }
+        }
+        
+        print('_loadPSIData: Final filtered records: ${records.length}');
         
         // Sort by train number and then by date
         records.sort((a, b) {
@@ -806,6 +895,32 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                         child: Text(
                           'Show',
                           style: TextStyle(fontSize: isMobile ? 13 : 14),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PSIFormScreen(),
+                            ),
+                          );
+                          if (result == true) {
+                            _loadPSIData();
+                          }
+                        },
+                        icon: Icon(Icons.add, size: isMobile ? 16 : 18),
+                        label: Text(
+                          'Add PSI Report',
+                          style: TextStyle(fontSize: isMobile ? 13 : 14),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 16 : 24,
+                            vertical: isMobile ? 10 : 12,
+                          ),
                         ),
                       ),
                       ElevatedButton.icon(

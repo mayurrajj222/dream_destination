@@ -213,6 +213,25 @@ class PSIService {
     }
   }
 
+  // Bulk create PSI records
+  Future<Map<String, dynamic>> bulkCreatePSIRecords(List<PSIRecord> records) async {
+    try {
+      if (currentUserId == null) {
+        return {'success': false, 'message': 'User not authenticated'};
+      }
+      final data = records
+          .map((r) => r.copyWith(userId: currentUserId!).toMap())
+          .toList();
+      await _supabase.from(tableName).insert(data);
+      return {
+        'success': true,
+        'message': '${records.length} record(s) saved successfully',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Error saving records: ${e.toString()}'};
+    }
+  }
+
   // Update PSI record
   Future<Map<String, dynamic>> updatePSIRecord(PSIRecord record) async {
     try {

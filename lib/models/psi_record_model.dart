@@ -17,6 +17,7 @@ class PSIRecord {
   final String tripType; // 'Going' or 'Coming'
   final String ehkName; // EHK (Employee) Name - e.g., "Dharmander Kumar"
   final String? companyName; // Company Name - e.g., "R. N. INDUSTRIES"
+  final String? importBatchId; // Unique ID for each import session to track records from same import
   
   // Service ratings (for AC coaches - 5 services)
   final String? service1Rating; // Toiletries availability
@@ -47,6 +48,7 @@ class PSIRecord {
     required this.tripType,
     required this.ehkName,
     this.companyName,
+    this.importBatchId,
     this.service1Rating,
     this.service2Rating,
     this.service3Rating,
@@ -75,6 +77,7 @@ class PSIRecord {
       'trip_type': tripType,
       'ehk_name': ehkName,
       'company_name': companyName,
+      'import_batch_id': importBatchId,
       'service1_rating': service1Rating,
       'service2_rating': service2Rating,
       'service3_rating': service3Rating,
@@ -105,6 +108,7 @@ class PSIRecord {
       tripType: map['trip_type'] ?? 'Going',
       ehkName: map['ehk_name'] ?? '',
       companyName: map['company_name'],
+      importBatchId: map['import_batch_id'],
       service1Rating: map['service1_rating'],
       service2Rating: map['service2_rating'],
       service3Rating: map['service3_rating'],
@@ -138,6 +142,7 @@ class PSIRecord {
     String? tripType,
     String? ehkName,
     String? companyName,
+    String? importBatchId,
     String? service1Rating,
     String? service2Rating,
     String? service3Rating,
@@ -165,6 +170,7 @@ class PSIRecord {
       tripType: tripType ?? this.tripType,
       ehkName: ehkName ?? this.ehkName,
       companyName: companyName ?? this.companyName,
+      importBatchId: importBatchId ?? this.importBatchId,
       service1Rating: service1Rating ?? this.service1Rating,
       service2Rating: service2Rating ?? this.service2Rating,
       service3Rating: service3Rating ?? this.service3Rating,
