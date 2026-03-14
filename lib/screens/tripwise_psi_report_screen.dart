@@ -193,6 +193,8 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
       }).toList();
       
       tripDisplays.sort();
+      // Deduplicate — same display string from multiple import batches
+      tripDisplays = tripDisplays.toSet().toList()..sort();
       
       print('_loadTripsForTrain: Trip displays created: ${tripDisplays.length}');
       if (tripDisplays.isNotEmpty) {
@@ -414,102 +416,37 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
         print('_loadPSIData: Selected trip: $_selectedTrip');
         print('_loadPSIData: Extracted tripId: "$tripId"');
         print('_loadPSIData: Extracted ehkName: "$ehkName"');
-        print('_loadPSIData: Date range: $_fromDate to $_toDate');
         
-        // Load PSI records for selected trip
-        final allRecords = await _psiService.getPSIRecordsByDateRange(
-          _fromDate,
-          _toDate,
-        );
-        
-        print('_loadPSIData: Total records in date range: ${allRecords.length}');
-        
-        // Debug: Show all trip IDs and EHK names in the records
-        if (allRecords.isNotEmpty) {
-          print('_loadPSIData: Sample records:');
-          for (var i = 0; i < allRecords.length && i < 5; i++) {
-            print('  Record $i: tripId="${allRecords[i].tripId}", ehkName="${allRecords[i].ehkName}", trainNo="${allRecords[i].trainNo}", batchId=${allRecords[i].importBatchId}');
-          }
-        }
-        
-        // First, try to find records with matching trip ID and EHK name
-        final matchingRecords = allRecords.where((r) => 
-          r.tripId == tripId && r.ehkName == ehkName
-        ).toList();
-        
-        print('_loadPSIData: Records matching trip ID and EHK: ${matchingRecords.length}');
-        
-        // Check if we have import_batch_id available (new imports)
-        final recordsWithBatchId = matchingRecords.where((r) => 
+        // Query directly by tripId — no 1000-record limit issue
+        final tripRecords = await _psiService.getPSIRecordsByTrip(tripId);
+        print('_loadPSIData: Records for tripId $tripId: ${tripRecords.length}');
+
+        // Filter by ehkName to distinguish same tripId from different EHKs
+        final matchingRecords = tripRecords.where((r) => r.ehkName == ehkName).toList();
+        print('_loadPSIData: After ehkName filter: ${matchingRecords.length}');
+
+        // If multiple batches exist, pick the one with the most records
+        final recordsWithBatchId = matchingRecords.where((r) =>
           r.importBatchId != null && r.importBatchId!.isNotEmpty
         ).toList();
-        
+
         if (recordsWithBatchId.isNotEmpty) {
-          // Use import_batch_id for precise filtering (best method)
-          // Get the batch ID from the first matching record
-          final batchId = recordsWithBatchId.first.importBatchId!;
-          records = allRecords.where((r) => 
-            r.tripId == tripId &&
-            r.ehkName == ehkName &&
-            r.importBatchId == batchId
-          ).toList();
-          
-          // Get unique train numbers in filtered records
-          final trainNumbers = records.map((r) => r.trainNo).toSet().toList();
-          trainNumbers.sort();
-          
-          print('_loadPSIData: Using import_batch_id filter: $batchId');
-          print('_loadPSIData: Found ${records.length} records across ${trainNumbers.length} trains: $trainNumbers');
+          final batchGroups = <String, List<PSIRecord>>{};
+          for (var r in recordsWithBatchId) {
+            batchGroups.putIfAbsent(r.importBatchId!, () => []).add(r);
+          }
+          final bestBatchId = batchGroups.entries
+              .reduce((a, b) => a.value.length >= b.value.length ? a : b)
+              .key;
+          records = matchingRecords.where((r) => r.importBatchId == bestBatchId).toList();
+          print('_loadPSIData: Using batch $bestBatchId → ${records.length} records');
         } else {
-          // Fallback for old records without import_batch_id
-          // Use tight date filtering (within 2 days)
-          final selectedDate = parts.length > 1 ? parts[1].trim() : '';
-          DateTime? tripDate;
-          if (selectedDate.isNotEmpty) {
-            try {
-              final dateParts = selectedDate.split('-');
-              if (dateParts.length == 3) {
-                tripDate = DateTime(
-                  int.parse(dateParts[0]),
-                  int.parse(dateParts[1]),
-                  int.parse(dateParts[2]),
-                );
-              }
-            } catch (e) {
-              print('Error parsing trip date: $e');
-            }
-          }
-          
-          if (tripDate != null) {
-            final startDate = tripDate.subtract(const Duration(days: 2));
-            final endDate = tripDate.add(const Duration(days: 2));
-            records = allRecords.where((r) => 
-              r.tripId == tripId &&
-              r.ehkName == ehkName &&
-              r.date.isAfter(startDate) &&
-              r.date.isBefore(endDate)
-            ).toList();
-            
-            // Get unique train numbers in filtered records
-            final trainNumbers = records.map((r) => r.trainNo).toSet().toList();
-            trainNumbers.sort();
-            
-            print('_loadPSIData: Using date-based filter (±2 days)');
-            print('_loadPSIData: Found ${records.length} records across ${trainNumbers.length} trains: $trainNumbers');
-          } else {
-            // Last resort: just use trip ID and EHK name
-            records = matchingRecords;
-            
-            // Get unique train numbers in filtered records
-            final trainNumbers = records.map((r) => r.trainNo).toSet().toList();
-            trainNumbers.sort();
-            
-            print('_loadPSIData: Using trip ID + EHK filter only');
-            print('_loadPSIData: Found ${records.length} records across ${trainNumbers.length} trains: $trainNumbers');
-          }
+          records = matchingRecords;
+          print('_loadPSIData: No batch ID, using all ${records.length} matching records');
         }
-        
-        print('_loadPSIData: Final filtered records: ${records.length}');
+
+        final trainNumbers = records.map((r) => r.trainNo).toSet().toList()..sort();
+        print('_loadPSIData: Final filtered records: ${records.length} across trains: $trainNumbers');
         
         // Sort by train number and then by date
         records.sort((a, b) {

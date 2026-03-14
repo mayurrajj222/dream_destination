@@ -170,6 +170,10 @@ class ExcelImportService {
 
       // Process data rows (skip header row)
       String currentTrainNo = metadata['trainNo'] ?? '';
+      String currentTripType = 'Going'; // first section is always Going
+      bool firstTrainSectionSeen = false;
+      // If metadata already has a train number, the first section is already known
+      if (currentTrainNo.isNotEmpty) firstTrainSectionSeen = true;
       
       print('ExcelImport: Starting data import with train no: "$currentTrainNo"');
       
@@ -183,13 +187,32 @@ class ExcelImportService {
           }
 
           final firstCell = row[0]?.value?.toString().trim() ?? '';
+
+          // Skip summary/total rows
+          if (firstCell.toLowerCase().contains('total') ||
+              firstCell.toLowerCase().contains('feedback') ||
+              firstCell.toLowerCase().contains('attended') ||
+              firstCell.toLowerCase().contains('not attended')) {
+            print('ExcelImport: Skipping summary row at $i: $firstCell');
+            continue;
+          }
           
           // Check if this is a new train section (e.g., "Train No: 05219")
           if (firstCell.toLowerCase().contains('train') && firstCell.toLowerCase().contains('no')) {
             final trainNoMatch = RegExp(r'(\d{5})').firstMatch(firstCell);
             if (trainNoMatch != null) {
-              currentTrainNo = trainNoMatch.group(1)!;
-              print('ExcelImport: Found new train section: $currentTrainNo');
+              final newTrainNo = trainNoMatch.group(1)!;
+              if (!firstTrainSectionSeen) {
+                // First train section = Going
+                currentTrainNo = newTrainNo;
+                currentTripType = 'Going';
+                firstTrainSectionSeen = true;
+              } else {
+                // Subsequent train sections = Coming
+                currentTrainNo = newTrainNo;
+                currentTripType = 'Coming';
+              }
+              print('ExcelImport: Found new train section: $currentTrainNo, tripType: $currentTripType');
               continue;
             }
           }
@@ -263,7 +286,7 @@ class ExcelImportService {
             coach: coach,
             seatNo: seatNo,
             psiScore: psiScore,
-            tripType: 'Going',
+            tripType: currentTripType,
             ehkName: metadata['ehkName'] ?? 'Unknown',
             companyName: metadata['companyName'],
             importBatchId: importBatchId, // Set the import batch ID
@@ -346,14 +369,30 @@ class ExcelImportService {
 
       print('Using Train ID: $trainId for all records');
 
+      // Build a cache of trainNo -> trainId to handle multi-train Excel files
+      final Map<String, String> trainIdCache = {trainNo: trainId!};
+
       // Save records to Supabase
       for (var record in records) {
         try {
-          // Update record with trainId (guaranteed to be non-null at this point)
-          final recordToSave = record.copyWith(trainId: trainId);
+          // Resolve trainId for this record's train number
+          String? resolvedTrainId = trainIdCache[record.trainNo];
+          if (resolvedTrainId == null) {
+            resolvedTrainId = await _findOrCreateTrain(record.trainNo, 'Train ${record.trainNo}');
+            if (resolvedTrainId != null) {
+              trainIdCache[record.trainNo] = resolvedTrainId;
+            }
+          }
+
+          if (resolvedTrainId == null) {
+            errorCount++;
+            errors.add('Could not resolve train for ${record.passengerName} (Train: ${record.trainNo})');
+            continue;
+          }
+
+          final recordToSave = record.copyWith(trainId: resolvedTrainId);
           
-          // Log the record being saved for debugging
-          print('Saving record: ${record.passengerName}, TrainID: ${recordToSave.trainId}, TripID: ${recordToSave.tripId}');
+          print('Saving record: ${record.passengerName}, TrainID: ${recordToSave.trainId}, TripType: ${recordToSave.tripType}');
               
           final result = await _psiService.createPSIRecord(recordToSave);
           if (result['success']) {

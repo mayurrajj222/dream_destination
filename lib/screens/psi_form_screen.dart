@@ -497,9 +497,9 @@ class _PSIFormScreenState extends State<PSIFormScreen> {
     final row = _rows[i];
     final bg = i.isEven ? Colors.white : const Color(0xFFF5F9FF);
     return Container(
-      color: bg,
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFDDDDDD))),
+      decoration: BoxDecoration(
+        color: bg,
+        border: const Border(bottom: BorderSide(color: Color(0xFFDDDDDD))),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
