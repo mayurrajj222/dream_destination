@@ -48,18 +48,32 @@ class PSIService {
     try {
       if (currentUserId == null) return [];
 
-      final response = await _supabase
-          .from(tableName)
-          .select()
-          .eq('user_id', currentUserId!)
-          .gte('date', fromDate.toIso8601String())
-          .lte('date', toDate.toIso8601String())
-          .order('date', ascending: false)  // Changed to descending to get newest first
-          .limit(15000);  // Increased limit to 15000 records
+      // Paginate to get all records beyond Supabase's 1000-row default cap
+      List<PSIRecord> allRecords = [];
+      int offset = 0;
+      const pageSize = 1000;
 
-      return (response as List)
-          .map((data) => PSIRecord.fromMap(data, data['id']))
-          .toList();
+      while (true) {
+        final response = await _supabase
+            .from(tableName)
+            .select()
+            .eq('user_id', currentUserId!)
+            .gte('date', fromDate.toIso8601String())
+            .lte('date', toDate.toIso8601String())
+            .order('date', ascending: false)
+            .range(offset, offset + pageSize - 1);
+
+        final page = (response as List)
+            .map((data) => PSIRecord.fromMap(data, data['id']))
+            .toList();
+
+        allRecords.addAll(page);
+
+        if (page.length < pageSize) break; // last page
+        offset += pageSize;
+      }
+
+      return allRecords;
     } catch (e) {
       print('Error getting PSI records by date range: $e');
       return [];
