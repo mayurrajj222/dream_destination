@@ -385,14 +385,7 @@ class ExcelImportService {
       // Build a cache of trainNo -> trainId to handle multi-train Excel files
       final Map<String, String> trainIdCache = {trainNo: trainId!};
 
-      // Delete existing records for this trip before re-importing (clean re-import)
-      final tripId = metadata['tripId'] ?? '';
-      if (tripId.isNotEmpty) {
-        await _psiService.deletePSIRecordsByTrip(tripId);
-        print('ExcelImport: Deleted existing records for trip $tripId before re-import');
-      }
-
-      // Save records to Supabase
+      // Fetch existing mobile numbers for this specific trip to skip re-import duplicates
       int skippedCount = 0;
       for (var record in records) {
         try {
