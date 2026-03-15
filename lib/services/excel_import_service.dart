@@ -218,31 +218,44 @@ class ExcelImportService {
           }
           
           // Parse row data - be very flexible
-          final dateStr = row.length > 0 ? (row[0]?.value?.toString().trim() ?? '') : '';
           final passengerName = row.length > 1 ? (row[1]?.value?.toString().trim() ?? '') : '';
           final pnrNo = row.length > 2 ? (row[2]?.value?.toString().trim() ?? '') : '';
           final mobileNo = row.length > 3 ? (row[3]?.value?.toString().trim() ?? '') : '';
           final coach = row.length > 4 ? (row[4]?.value?.toString().trim() ?? '') : '';
           final seatNo = row.length > 5 ? (row[5]?.value?.toString().trim() ?? '') : '';
           final psiScore = row.length > 6 ? _parseDouble(row[6]?.value?.toString() ?? '100') : 100.0;
-          
-          // CRITICAL: Don't skip rows with missing data - import them anyway!
-          // Only skip if BOTH date AND passenger name are empty
-          if (dateStr.isEmpty && passengerName.isEmpty) {
-            continue;
-          }
-          
-          // If date is empty but passenger name exists, use current date
+
+          // Extract date: use typed DateCellValue directly to avoid MM/DD vs DD/MM ambiguity
           DateTime date;
-          if (dateStr.isEmpty) {
-            print('ExcelImport: Row $i has no date, using current date');
+          final dateCellValue = row.length > 0 ? row[0]?.value : null;
+          if (dateCellValue == null) {
+            if (passengerName.isEmpty) continue;
             date = DateTime.now();
+          } else if (dateCellValue is excel_pkg.DateCellValue) {
+            // Excel library parses ambiguous dates (e.g. 01-05-2025) as MM-DD-YYYY (US format).
+            // Our data is always DD-MM-YYYY (Indian format), so swap day/month when both ≤ 12.
+            final d = dateCellValue;
+            if (d.month <= 12 && d.day <= 12 && d.month != d.day) {
+              // Ambiguous — swap to get DD-MM interpretation
+              date = DateTime(d.year, d.day, d.month);
+              print('ExcelImport: Row $i date swapped DD-MM: $date');
+            } else {
+              date = dateCellValue.asDateTimeLocal();
+              print('ExcelImport: Row $i date from DateCellValue: $date');
+            }
           } else {
-            try {
-              date = _parseDate(dateStr);
-            } catch (e) {
-              print('ExcelImport: Row $i date parse failed, using current date. Error: $e');
+            // Fallback: parse from string, treating as DD-MM-YYYY (Indian format)
+            final dateStr = dateCellValue.toString().trim();
+            if (dateStr.isEmpty && passengerName.isEmpty) continue;
+            if (dateStr.isEmpty) {
               date = DateTime.now();
+            } else {
+              try {
+                date = _parseDateDDMMYYYY(dateStr);
+              } catch (e) {
+                print('ExcelImport: Row $i date parse failed: $e');
+                date = DateTime.now();
+              }
             }
           }
           
@@ -372,19 +385,16 @@ class ExcelImportService {
       // Build a cache of trainNo -> trainId to handle multi-train Excel files
       final Map<String, String> trainIdCache = {trainNo: trainId!};
 
-      // Fetch existing mobile numbers to skip duplicates
-      final existingMobiles = await _psiService.getExistingMobileNumbers();
-      print('ExcelImport: ${existingMobiles.length} existing mobile numbers found');
+      // Delete existing records for this trip before re-importing (clean re-import)
+      final tripId = metadata['tripId'] ?? '';
+      if (tripId.isNotEmpty) {
+        await _psiService.deletePSIRecordsByTrip(tripId);
+        print('ExcelImport: Deleted existing records for trip $tripId before re-import');
+      }
 
       // Save records to Supabase
       int skippedCount = 0;
       for (var record in records) {
-        // Skip if mobile number already exists
-        if (record.mobileNo.isNotEmpty && existingMobiles.contains(record.mobileNo)) {
-          skippedCount++;
-          print('⟳ Skipped duplicate mobile: ${record.mobileNo} (${record.passengerName})');
-          continue;
-        }
         try {
           // Resolve trainId for this record's train number
           String? resolvedTrainId = trainIdCache[record.trainNo];
@@ -555,6 +565,28 @@ class ExcelImportService {
       print('Error parsing date "$dateStr": $e, using current date');
       return DateTime.now();
     }
+  }
+
+  /// Parse date string always as DD-MM-YYYY (Indian format)
+  DateTime _parseDateDDMMYYYY(String dateStr) {
+    dateStr = dateStr.trim();
+    final sep = dateStr.contains('-') ? '-' : dateStr.contains('/') ? '/' : null;
+    if (sep != null) {
+      final parts = dateStr.split(sep);
+      if (parts.length == 3) {
+        final day = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        var year = int.tryParse(parts[2]);
+        if (day != null && month != null && year != null) {
+          if (year < 100) year = year < 50 ? 2000 + year : 1900 + year;
+          if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900) {
+            return DateTime(year, month, day);
+          }
+        }
+      }
+    }
+    // Fallback to DateTime.parse
+    return DateTime.parse(dateStr);
   }
 
   /// Parse double from string

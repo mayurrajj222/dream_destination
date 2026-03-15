@@ -213,6 +213,40 @@ class PSIService {
     }
   }
 
+  // Delete all PSI records for a specific trip (used before re-import)
+  Future<void> deletePSIRecordsByTrip(String tripId) async {
+    try {
+      if (currentUserId == null) return;
+      await _supabase
+          .from(tableName)
+          .delete()
+          .eq('user_id', currentUserId!)
+          .eq('trip_id', tripId);
+      print('PSIService: Deleted records for trip $tripId');
+    } catch (e) {
+      print('Error deleting records for trip $tripId: $e');
+    }
+  }
+
+  // Get existing mobile numbers for a specific trip (to prevent duplicates on re-import of same trip)
+  Future<Set<String>> getExistingMobileNumbers(String tripId) async {
+    try {
+      if (currentUserId == null) return {};
+      final response = await _supabase
+          .from(tableName)
+          .select('mobile_no')
+          .eq('user_id', currentUserId!)
+          .eq('trip_id', tripId);
+      return (response as List)
+          .map((r) => r['mobile_no']?.toString() ?? '')
+          .where((m) => m.isNotEmpty)
+          .toSet();
+    } catch (e) {
+      print('Error fetching existing mobile numbers: $e');
+      return {};
+    }
+  }
+
   // Bulk create PSI records
   Future<Map<String, dynamic>> bulkCreatePSIRecords(List<PSIRecord> records) async {
     try {
