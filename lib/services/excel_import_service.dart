@@ -372,8 +372,19 @@ class ExcelImportService {
       // Build a cache of trainNo -> trainId to handle multi-train Excel files
       final Map<String, String> trainIdCache = {trainNo: trainId!};
 
+      // Fetch existing mobile numbers to skip duplicates
+      final existingMobiles = await _psiService.getExistingMobileNumbers();
+      print('ExcelImport: ${existingMobiles.length} existing mobile numbers found');
+
       // Save records to Supabase
+      int skippedCount = 0;
       for (var record in records) {
+        // Skip if mobile number already exists
+        if (record.mobileNo.isNotEmpty && existingMobiles.contains(record.mobileNo)) {
+          skippedCount++;
+          print('⟳ Skipped duplicate mobile: ${record.mobileNo} (${record.passengerName})');
+          continue;
+        }
         try {
           // Resolve trainId for this record's train number
           String? resolvedTrainId = trainIdCache[record.trainNo];
@@ -417,6 +428,7 @@ class ExcelImportService {
         'message': 'Import completed',
         'totalRecords': records.length,
         'successCount': successCount,
+        'skippedCount': skippedCount,
         'errorCount': errorCount,
         'errors': errors,
         'metadata': metadata,

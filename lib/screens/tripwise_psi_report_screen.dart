@@ -280,6 +280,11 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                   children: [
                     Text('Total Records: ${result['totalRecords']}'),
                     Text('Successfully Imported: ${result['successCount']}'),
+                    if ((result['skippedCount'] ?? 0) > 0)
+                      Text(
+                        'Skipped (duplicates): ${result['skippedCount']}',
+                        style: const TextStyle(color: Colors.orange),
+                      ),
                     if (result['errorCount'] > 0)
                       Text(
                         'Errors: ${result['errorCount']}',
