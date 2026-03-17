@@ -373,6 +373,56 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
     }
   }
 
+  Future<void> _deleteTrip() async {
+    if (_selectedTrip == '--Please Select Trips--') return;
+
+    final parts = _selectedTrip.split('|');
+    final tripId = parts[0].trim();
+    final ehkName = parts.length > 3 ? parts[3].trim() : '';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Trip'),
+        content: Text(
+          'Delete ALL PSI records for Trip $tripId ($ehkName)?\n\nThis cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+    await _psiService.deletePSIRecordsByTrip(tripId);
+    setState(() {
+      _isLoading = false;
+      _showReport = false;
+      _psiRecords = [];
+    });
+
+    // Reload trips list
+    await _loadTripsForTrain();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Trip $tripId deleted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
   Future<void> _loadPSIData() async {
     if (_selectedTrainId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -874,6 +924,24 @@ class _TripwisePSIReportScreenState extends State<TripwisePSIReportScreen> {
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 16 : 24,
+                            vertical: isMobile ? 10 : 12,
+                          ),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: (_isLoading || _selectedTrip == '--Please Select Trips--')
+                            ? null
+                            : _deleteTrip,
+                        icon: Icon(Icons.delete_forever, size: isMobile ? 16 : 18),
+                        label: Text(
+                          'Delete Trip',
+                          style: TextStyle(fontSize: isMobile ? 13 : 14),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade700,
                           foregroundColor: Colors.white,
                           padding: EdgeInsets.symmetric(
                             horizontal: isMobile ? 16 : 24,
