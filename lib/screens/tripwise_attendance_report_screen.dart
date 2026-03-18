@@ -23,6 +23,11 @@ class _TripwiseAttendanceReportScreenState
   List<Train> _trains = [];
   Train? _selectedTrain;
 
+  // Trip (batch) selection
+  List<Map<String, String>> _availableBatches = [];
+  Map<String, String>? _selectedBatch;
+  bool _isLoadingBatches = false;
+
   List<AttendanceRecord> _records = [];
   bool _isLoading = false;
   bool _isImporting = false;
@@ -37,6 +42,19 @@ class _TripwiseAttendanceReportScreenState
   Future<void> _loadTrains() async {
     final trains = await _trainService.getAllTrains();
     setState(() => _trains = trains);
+    await _loadBatches();
+  }
+
+  Future<void> _loadBatches() async {
+    setState(() => _isLoadingBatches = true);
+    final batches = await _importService.getAvailableBatches(
+      trainNo: _selectedTrain?.trainNoGoing,
+    );
+    setState(() {
+      _availableBatches = batches;
+      _selectedBatch = null;
+      _isLoadingBatches = false;
+    });
   }
 
   Future<void> _pickDate(bool isFrom) async {
@@ -45,12 +63,6 @@ class _TripwiseAttendanceReportScreenState
       initialDate: isFrom ? _fromDate : _toDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: ColorScheme.light(primary: Colors.blue.shade700),
-        ),
-        child: child!,
-      ),
     );
     if (picked != null) {
       setState(() => isFrom ? _fromDate = picked : _toDate = picked);
@@ -63,6 +75,7 @@ class _TripwiseAttendanceReportScreenState
       fromDate: _fromDate,
       toDate: _toDate,
       trainNo: _selectedTrain?.trainNoGoing,
+      batchId: _selectedBatch?['batchId'],
     );
     setState(() {
       _records = records;
@@ -100,13 +113,56 @@ class _TripwiseAttendanceReportScreenState
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              if (result['success'] == true) _loadRecords();
+              if (result['success'] == true) {
+                _loadBatches();
+                _loadRecords();
+              }
             },
             child: const Text('OK'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _deleteTrip() async {
+    if (_selectedBatch == null) return;
+    final batchId = _selectedBatch!['batchId']!;
+    final label = _tripLabel(_selectedBatch!);
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Trip'),
+        content: Text('Delete ALL attendance records for:\n$label\n\nThis cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await _importService.deleteByBatch(batchId);
+    await _loadBatches();
+    setState(() { _showReport = false; _records = []; });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Trip deleted successfully'), backgroundColor: Colors.green),
+      );
+    }
+  }
+
+  String _tripLabel(Map<String, String> batch) {
+    final date = batch['sDate'] ?? '';
+    final train = batch['trainNo'] ?? '';
+    final bid = batch['batchId'] ?? '';
+    return '$date | Train $train | $bid';
   }
 
   String _fmt(DateTime? dt, {bool timeOnly = false}) {
@@ -139,6 +195,8 @@ class _TripwiseAttendanceReportScreenState
                 const SizedBox(height: 12),
                 _dateRow('To Date*', _toDate, () => _pickDate(false)),
                 const SizedBox(height: 12),
+
+                // Train dropdown
                 Row(children: [
                   const SizedBox(width: 120, child: Text('Train No', style: TextStyle(fontWeight: FontWeight.w600))),
                   Expanded(
@@ -164,40 +222,101 @@ class _TripwiseAttendanceReportScreenState
                                 overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14)),
                           )),
                         ],
-                        onChanged: (t) => setState(() => _selectedTrain = t),
+                        onChanged: (t) {
+                          setState(() => _selectedTrain = t);
+                          _loadBatches();
+                        },
                       ),
                     ),
                   ),
                 ]),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+
+                // Trip (batch) dropdown
                 Row(children: [
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _loadRecords,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade600,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('Show', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: _isImporting ? null : _importExcel,
-                    icon: _isImporting
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.upload_file, size: 18),
-                    label: const Text('Import Excel'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange.shade700,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  const SizedBox(width: 120, child: Text('Select Trip', style: TextStyle(fontWeight: FontWeight.w600))),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: _isLoadingBatches
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              child: Text('Loading trips...', style: TextStyle(color: Colors.grey)),
+                            )
+                          : DropdownButtonFormField<Map<String, String>>(
+                              value: _selectedBatch,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                isDense: true,
+                              ),
+                              hint: const Text('All Trips', style: TextStyle(fontSize: 14)),
+                              isExpanded: true,
+                              items: [
+                                const DropdownMenuItem<Map<String, String>>(
+                                  value: null,
+                                  child: Text('All Trips'),
+                                ),
+                                ..._availableBatches.map((b) => DropdownMenuItem<Map<String, String>>(
+                                  value: b,
+                                  child: Text(_tripLabel(b),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 13)),
+                                )),
+                              ],
+                              onChanged: (b) => setState(() => _selectedBatch = b),
+                            ),
                     ),
                   ),
                 ]),
+                const SizedBox(height: 16),
+
+                // Action buttons
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _loadRecords,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Show', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: _isImporting ? null : _importExcel,
+                      icon: _isImporting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.upload_file, size: 18),
+                      label: const Text('Import Excel'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: _selectedBatch == null ? null : _deleteTrip,
+                      icon: const Icon(Icons.delete_forever, size: 18),
+                      label: const Text('Delete Trip'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

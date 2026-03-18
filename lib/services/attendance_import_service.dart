@@ -128,6 +128,7 @@ class AttendanceImportService {
             'punch3_long': _parseLong(punch3LatLong),
             'punch3_location': punch3LatLong.isNotEmpty ? punch3LatLong : null,
             'total': int.tryParse(totalStr) ?? 0,
+            'trip_id': null, // will be set from Excel if column exists
             'import_batch_id': batchId,
             'created_at': DateTime.now().toIso8601String(),
           });
@@ -165,6 +166,7 @@ class AttendanceImportService {
     required DateTime fromDate,
     required DateTime toDate,
     String? trainNo,
+    String? batchId,
   }) async {
     try {
       if (currentUserId == null) return [];
@@ -178,6 +180,9 @@ class AttendanceImportService {
       if (trainNo != null && trainNo.isNotEmpty) {
         query = query.eq('train_no', trainNo);
       }
+      if (batchId != null && batchId.isNotEmpty) {
+        query = query.eq('import_batch_id', batchId);
+      }
 
       final response = await query.order('s_date', ascending: true);
       return (response as List).map((r) => AttendanceRecord.fromMap(r)).toList();
@@ -185,6 +190,46 @@ class AttendanceImportService {
       print('AttendanceImport: Error fetching records: $e');
       return [];
     }
+  }
+
+  /// Returns distinct import batches as trip options: "batchId | date | trainNo"
+  Future<List<Map<String, String>>> getAvailableBatches({String? trainNo}) async {
+    try {
+      if (currentUserId == null) return [];
+      var query = _supabase
+          .from(tableName)
+          .select('import_batch_id, s_date, train_no')
+          .eq('user_id', currentUserId!);
+      if (trainNo != null && trainNo.isNotEmpty) {
+        query = query.eq('train_no', trainNo);
+      }
+      final response = await query.order('s_date', ascending: false);
+      final seen = <String>{};
+      final result = <Map<String, String>>[];
+      for (final r in (response as List)) {
+        final bid = r['import_batch_id']?.toString() ?? '';
+        if (bid.isEmpty || seen.contains(bid)) continue;
+        seen.add(bid);
+        result.add({
+          'batchId': bid,
+          'sDate': r['s_date']?.toString() ?? '',
+          'trainNo': r['train_no']?.toString() ?? '',
+        });
+      }
+      return result;
+    } catch (e) {
+      print('AttendanceImport: Error fetching batches: $e');
+      return [];
+    }
+  }
+
+  Future<void> deleteByBatch(String batchId) async {
+    if (currentUserId == null) return;
+    await _supabase
+        .from(tableName)
+        .delete()
+        .eq('user_id', currentUserId!)
+        .eq('import_batch_id', batchId);
   }
 
   // --- helpers ---

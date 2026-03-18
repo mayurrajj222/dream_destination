@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   punch3_long DOUBLE PRECISION,
   punch3_location TEXT,
   total INTEGER DEFAULT 0,
+  trip_id TEXT,
   import_batch_id TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

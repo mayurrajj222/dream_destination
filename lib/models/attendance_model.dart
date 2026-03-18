@@ -18,6 +18,7 @@ class AttendanceRecord {
   final double? punch3Long;
   final String? punch3Location;
   final int total;
+  final String? tripId;
   final String? importBatchId;
   final DateTime createdAt;
 
@@ -41,6 +42,7 @@ class AttendanceRecord {
     this.punch3Long,
     this.punch3Location,
     this.total = 0,
+    this.tripId,
     this.importBatchId,
     required this.createdAt,
   });
@@ -65,6 +67,7 @@ class AttendanceRecord {
       'punch3_long': punch3Long,
       'punch3_location': punch3Location,
       'total': total,
+      'trip_id': tripId,
       'import_batch_id': importBatchId,
       'created_at': createdAt.toIso8601String(),
     };
@@ -91,6 +94,7 @@ class AttendanceRecord {
       punch3Long: (map['punch3_long'] as num?)?.toDouble(),
       punch3Location: map['punch3_location'],
       total: map['total'] ?? 0,
+      tripId: map['trip_id'],
       importBatchId: map['import_batch_id'],
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'])
