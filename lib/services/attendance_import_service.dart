@@ -29,6 +29,18 @@ class AttendanceImportService {
         return {'success': false, 'message': 'Excel file is empty'};
       }
 
+      // --- Parse Trip ID from row 0, e.g. "Trip ID : 2" ---
+      String? tripId;
+      final firstRowStr = sheet.rows[0]
+          .map((c) => c?.value?.toString() ?? '')
+          .join(' ');
+      final tripMatch = RegExp(r'Trip\s*ID\s*[:\-]?\s*(\d+)', caseSensitive: false)
+          .firstMatch(firstRowStr);
+      if (tripMatch != null) {
+        tripId = tripMatch.group(1);
+      }
+      print('AttendanceImport: Detected Trip ID: $tripId');
+
       // Find header row — look for row containing 'EmpCode' or 'TrainNo'
       int headerRow = -1;
       Map<String, int> colIndex = {};
@@ -128,7 +140,7 @@ class AttendanceImportService {
             'punch3_long': _parseLong(punch3LatLong),
             'punch3_location': punch3LatLong.isNotEmpty ? punch3LatLong : null,
             'total': int.tryParse(totalStr) ?? 0,
-            'trip_id': null, // will be set from Excel if column exists
+            'trip_id': tripId,
             'import_batch_id': batchId,
             'created_at': DateTime.now().toIso8601String(),
           });
@@ -167,6 +179,7 @@ class AttendanceImportService {
     required DateTime toDate,
     String? trainNo,
     String? batchId,
+    String? tripId,
   }) async {
     try {
       if (currentUserId == null) return [];
@@ -180,7 +193,9 @@ class AttendanceImportService {
       if (trainNo != null && trainNo.isNotEmpty) {
         query = query.eq('train_no', trainNo);
       }
-      if (batchId != null && batchId.isNotEmpty) {
+      if (tripId != null && tripId.isNotEmpty) {
+        query = query.eq('trip_id', tripId);
+      } else if (batchId != null && batchId.isNotEmpty) {
         query = query.eq('import_batch_id', batchId);
       }
 
@@ -192,26 +207,31 @@ class AttendanceImportService {
     }
   }
 
-  /// Returns distinct import batches as trip options: "batchId | date | trainNo"
+  /// Returns distinct trips (by trip_id) as options for the dropdown
   Future<List<Map<String, String>>> getAvailableBatches({String? trainNo}) async {
     try {
       if (currentUserId == null) return [];
       var query = _supabase
           .from(tableName)
-          .select('import_batch_id, s_date, train_no')
+          .select('import_batch_id, trip_id, s_date, train_no')
           .eq('user_id', currentUserId!);
       if (trainNo != null && trainNo.isNotEmpty) {
         query = query.eq('train_no', trainNo);
       }
       final response = await query.order('s_date', ascending: false);
+
+      // Group by trip_id (preferred) or batch_id (fallback)
       final seen = <String>{};
       final result = <Map<String, String>>[];
       for (final r in (response as List)) {
+        final tid = r['trip_id']?.toString() ?? '';
         final bid = r['import_batch_id']?.toString() ?? '';
-        if (bid.isEmpty || seen.contains(bid)) continue;
-        seen.add(bid);
+        final key = tid.isNotEmpty ? 'trip_$tid' : bid;
+        if (key.isEmpty || seen.contains(key)) continue;
+        seen.add(key);
         result.add({
           'batchId': bid,
+          'tripId': tid,
           'sDate': r['s_date']?.toString() ?? '',
           'trainNo': r['train_no']?.toString() ?? '',
         });

@@ -75,6 +75,7 @@ class _TripwiseAttendanceReportScreenState
       fromDate: _fromDate,
       toDate: _toDate,
       trainNo: _selectedTrain?.trainNoGoing,
+      tripId: _selectedBatch?['tripId'],
       batchId: _selectedBatch?['batchId'],
     );
     setState(() {
@@ -159,10 +160,10 @@ class _TripwiseAttendanceReportScreenState
   }
 
   String _tripLabel(Map<String, String> batch) {
-    final date = batch['sDate'] ?? '';
-    final train = batch['trainNo'] ?? '';
-    final bid = batch['batchId'] ?? '';
-    return '$date | Train $train | $bid';
+    final tid = batch['tripId'] ?? '';
+    if (tid.isNotEmpty) return 'Trip $tid';
+    // fallback: show date if no trip id
+    return 'Trip (${batch['sDate'] ?? ''})';
   }
 
   String _fmt(DateTime? dt, {bool timeOnly = false}) {
